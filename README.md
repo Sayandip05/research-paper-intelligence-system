@@ -289,3 +289,54 @@ You now have:
 - Vector search with Qdrant ✅
 - RESTful API ✅
 - Docker containerization ✅
+
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER INTERFACE                          │
+│                     (Web UI or API Request)                     │
+└────────────────────────────┬────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    FASTAPI APPLICATION                          │
+│  ┌────────────────────────────────────────────────────────┐     │
+│  │         LlamaIndex Agent (Query Planner)               │     │
+│  │  • Understands user question                           │     │
+│  │  • Breaks it into retrieval steps                      │     │
+│  │  • Decides what tools to use                           │     │
+│  └────────────────────────────────────────────────────────┘     │
+└────────────────────────────┬────────────────────────────────────┘
+                             ↓
+              ┌──────────────┴──────────────┐
+              ↓                             ↓
+┌─────────────────────────┐   ┌─────────────────────────┐
+│   QDRANT (Vector DB)    │   │   MONGODB (Storage)     │
+│                         │   │                         │
+│ • Stores embeddings     │   │ • Conversation history  │
+│ • Hybrid search         │   │ • Risk assessments      │
+│ • Metadata filtering    │   │ • Audit logs            │
+└────────────┬────────────┘   └─────────────────────────┘
+             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              RISK ANALYSIS AGENT (LlamaIndex)                   │
+│  • Reads retrieved chunks                                       │
+│  • Identifies risk patterns                                     │
+│  • Assigns severity levels                                      │
+│  • Generates citations                                          │
+└────────────────────────────┬────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                  GUARDRAILS AI (Safety Layer)                   │
+│  • Validates citations exist in source docs                     │
+│  • Checks for hallucinations                                    │
+│  • Enforces response format                                     │
+│  • Triggers refusal if evidence weak                            │
+└────────────────────────────┬────────────────────────────────────┘
+                             ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    LANGFUSE (Observability)                     │
+│  • Logs every agent decision                                    │
+│  • Tracks latency and costs                                     │
+│  • Stores prompt versions                                       │
+│  • Enables debugging                                            │
+└─────────────────────────────────────────────────────────────────┘
+                             ↓
+                    FINAL ANSWER TO USER
