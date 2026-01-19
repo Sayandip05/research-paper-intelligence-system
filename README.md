@@ -1,342 +1,185 @@
-# Research Paper Analyzer - Week 1: Core Document Processing
+# 🔬 Research Paper Intelligence System
 
-## 🎯 Week 1 Goal
+A production-ready RAG (Retrieval-Augmented Generation) pipeline for processing and searching research papers using **LlamaIndex**, **HuggingFace embeddings**, and **Qdrant** vector database.
 
-Get PDFs in, parsed, and searchable with section-aware chunking and hybrid retrieval.
+## 🎯 Project Overview
 
-## 📋 What You've Built
+This system ingests PDF research papers, chunks them intelligently, generates embeddings, and stores them in a vector database for semantic search.
 
-- ✅ FastAPI application structure
-- ✅ PDF parsing with PyMuPDF (sections, tables, figures, metadata)
-- ✅ Section-aware chunking strategy
-- ✅ Embedding generation (OpenAI + Local options)
-- ✅ Qdrant vector database integration
-- ✅ Upload and search API endpoints
-- ✅ Docker containerization
-
-## 🚀 Quick Start
-
-### Option 1: Docker (Recommended)
-
-```bash
-# 1. Clone/create project
-git clone <your-repo>
-cd research-paper-analyzer
-
-# 2. Create .env file
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
-
-# 3. Start all services
-docker-compose up -d
-
-# 4. Check if services are running
-docker-compose ps
-
-# 5. Test the API
-curl http://localhost:8000/health
+```mermaid
+flowchart LR
+    A[PDFs<br/>corpus/] -->|LlamaIndex<br/>SimpleDirectoryReader| B(LlamaIndex<br/>Smart Chunking)
+    B -->|SentenceSplitter| C{Vector Embeddings<br/>768 dimensions}
+    C -->|HuggingFace<br/>BGE-base-en-v1.5| D[Qdrant<br/>Vector DB]
 ```
 
-### Option 2: Local Development
+## ✅ Current Progress
 
-```bash
-# 1. Create virtual environment
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+### Week 1: Core Infrastructure (Completed)
 
-# 2. Install dependencies
-pip install -r requirements.txt
+| Component | Technology | Status |
+|-----------|------------|--------|
+| **PDF Parsing** | LlamaIndex `SimpleDirectoryReader` | ✅ Done |
+| **Chunking** | LlamaIndex `SentenceSplitter` | ✅ Done |
+| **Embeddings** | `BAAI/bge-base-en-v1.5` (768 dim) | ✅ Done |
+| **Vector DB** | Qdrant | ✅ Done |
+| **API Framework** | FastAPI | ✅ Done |
 
-# 3. Create .env file
-cp .env.example .env
-# Add your OPENAI_API_KEY
+### Features Implemented
 
-# 4. Start Qdrant and MongoDB (Docker)
-docker-compose up qdrant mongodb -d
+- 📄 **PDF Processing**: Automatic text extraction using LlamaIndex
+- ✂️ **Smart Chunking**: Sentence-aware splitting with configurable overlap
+- 🧠 **Free Embeddings**: Local HuggingFace model (no API costs!)
+- 🗄️ **Vector Storage**: Qdrant for fast similarity search
+- 🔍 **Search API**: FastAPI endpoints for querying
 
-# 5. Run FastAPI
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+## 🛠️ Tech Stack
 
-## 📝 Testing Your Setup
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Framework** | LlamaIndex | RAG orchestration |
+| **Embeddings** | BAAI/bge-base-en-v1.5 | Text → 768-dim vectors |
+| **Vector DB** | Qdrant | Similarity search |
+| **PDF Reader** | LlamaIndex + PyMuPDF | Document ingestion |
+| **API** | FastAPI | REST endpoints |
+| **Chunking** | SentenceSplitter | Semantic text splitting |
 
-### 1. Check Health
-
-```bash
-curl http://localhost:8000/health
-```
-
-Expected response:
-```json
-{
-  "status": "healthy",
-  "qdrant": "localhost:6333",
-  "mongodb": "mongodb://localhost:27017"
-}
-```
-
-### 2. Upload a PDF
-
-```bash
-curl -X POST "http://localhost:8000/api/upload/pdf" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@your_paper.pdf"
-```
-
-Expected response:
-```json
-{
-  "paper_id": "abc-123-def-456",
-  "filename": "your_paper.pdf",
-  "status": "success",
-  "message": "Successfully processed 45 chunks",
-  "num_chunks": 45,
-  "metadata": {
-    "title": "Attention Is All You Need",
-    "authors": [...],
-    "year": 2017
-  }
-}
-```
-
-### 3. Search Papers
-
-```bash
-curl -X POST "http://localhost:8000/api/search/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "What is the transformer architecture?",
-    "top_k": 5
-  }'
-```
-
-Expected response:
-```json
-{
-  "query": "What is the transformer architecture?",
-  "results": [
-    {
-      "chunk_id": "xyz-789",
-      "text": "The Transformer is a model architecture...",
-      "score": 0.89,
-      "metadata": {
-        "paper_title": "Attention Is All You Need",
-        "section_title": "Model Architecture",
-        "page_start": 3,
-        "page_end": 4
-      }
-    }
-  ],
-  "total_found": 5,
-  "search_time_ms": 123.45
-}
-```
-
-## 🏗️ Project Structure
+## 📁 Project Structure
 
 ```
-research-paper-analyzer/
+research-paper-intelligence-system/
+├── corpus/                     # Put your PDFs here
+│   ├── paper1.pdf
+│   └── paper2.pdf
 ├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI app
-│   │   ├── config.py            # Configuration
-│   │   ├── api/
-│   │   │   └── routes/
-│   │   │       ├── upload.py    # PDF upload endpoint
-│   │   │       └── search.py    # Search endpoint
-│   │   ├── services/
-│   │   │   ├── pdf_parser.py    # PDF parsing
-│   │   │   ├── chunking.py      # Section-aware chunking
-│   │   │   └── embeddings.py    # Embedding generation
-│   │   ├── db/
-│   │   │   └── qdrant_client.py # Qdrant operations
-│   │   └── models/
-│   │       ├── paper.py         # Paper data models
-│   │       └── chunk.py         # Chunk data models
-│   ├── uploads/                 # Uploaded PDFs
-│   ├── requirements.txt
-│   └── Dockerfile
-├── docker-compose.yml
+│   └── app/
+│       ├── api/               # FastAPI routes
+│       │   └── routes/
+│       │       └── search.py
+│       ├── db/
+│       │   └── qdrant_client.py   # Qdrant integration
+│       ├── models/
+│       │   ├── paper.py          # Paper data models
+│       │   └── chunk.py          # Chunk data models
+│       ├── services/
+│       │   ├── pdf_parser.py     # LlamaIndex PDF parsing
+│       │   ├── chunking.py       # LlamaIndex SentenceSplitter
+│       │   └── embeddings.py     # HuggingFace embeddings
+│       ├── config.py             # Settings & configuration
+│       └── main.py               # FastAPI app
+├── build_corpus.py            # Main ingestion script
+├── docker-compose.yml         # Qdrant container
+├── requirements.txt           # Python dependencies
 └── README.md
 ```
 
-## 🔧 Configuration (.env)
+## 🚀 Quick Start
+
+### 1. Prerequisites
+
+- Python 3.10+
+- Docker (for Qdrant)
+
+### 2. Setup
 
 ```bash
-# API Keys
-OPENAI_API_KEY=sk-...
+# Clone and navigate
+cd research-paper-intelligence-system
 
-# Qdrant
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
+# Create virtual environment
+python -m venv venv
+venv\Scripts\activate  # Windows
+# source venv/bin/activate  # Linux/Mac
 
-# MongoDB
-MONGODB_URL=mongodb://localhost:27017
+# Install dependencies
+pip install -r requirements.txt
+```
 
-# Embeddings
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_DIM=1536
+### 3. Start Qdrant
+
+```bash
+docker-compose up -d
+```
+
+### 4. Add PDFs
+
+Place your research papers in the `corpus/` directory:
+```
+corpus/
+├── paper1.pdf
+└── paper2.pdf
+```
+
+### 5. Build Corpus
+
+```bash
+python build_corpus.py
+```
+
+This will:
+1. Parse all PDFs using LlamaIndex
+2. Chunk text with SentenceSplitter
+3. Generate embeddings with BAAI/bge-base-en-v1.5
+4. Store in Qdrant vector database
+
+### 6. Start API
+
+```bash
+cd backend
+uvicorn app.main:app --reload
+```
+
+Visit: http://localhost:8000/docs
+
+## ⚙️ Configuration
+
+Edit `backend/app/config.py`:
+
+```python
+# Embedding Model
+embedding_model: str = "BAAI/bge-base-en-v1.5"
+embedding_dim: int = 768
 
 # Chunking
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
+chunk_size: int = 1000      # Max tokens per chunk
+chunk_overlap: int = 200    # Overlap between chunks
+
+# Qdrant
+qdrant_host: str = "localhost"
+qdrant_port: int = 6333
+qdrant_collection_name: str = "research_papers"
 ```
 
-## 📊 API Endpoints
+## 🔬 LlamaIndex Components Used
 
-### Upload PDF
-```
-POST /api/upload/pdf
-- Upload and process a research paper
-- Returns: paper_id, metadata, num_chunks
-```
+| Component | Import | Purpose |
+|-----------|--------|---------|
+| `SimpleDirectoryReader` | `llama_index.core` | Load PDFs |
+| `SentenceSplitter` | `llama_index.core.node_parser` | Smart chunking |
+| `HuggingFaceEmbedding` | `llama_index.embeddings.huggingface` | Generate embeddings |
+| `Document` | `llama_index.core.schema` | Document representation |
 
-### Search Papers
-```
-POST /api/search/
-- Search across all papers
-- Body: { "query": "...", "top_k": 10 }
-- Returns: ranked chunks with citations
-```
+## 📊 Embedding Model
 
-### Health Check
-```
-GET /health
-- Check if services are running
-```
+Using **BAAI/bge-base-en-v1.5**:
 
-### API Documentation
-```
-GET /docs
-- Interactive Swagger UI
-```
+- **Dimensions**: 768
+- **Type**: Dense embeddings
+- **Language**: English
+- **Quality**: State-of-the-art on MTEB benchmark
+- **Cost**: FREE (runs locally)
 
-## 🧪 Running Tests
+## 🗺️ Roadmap
 
-```bash
-# Run all tests
-make test
+- [x] Week 1: PDF → Chunks → Embeddings → Qdrant
+- [ ] Week 2: RAG Query Engine with LlamaIndex
+- [ ] Week 3: LLM Integration (Response Generation)
+- [ ] Week 4: Production Deployment
 
-# Or manually
-cd backend
-pytest tests/ -v
-```
+## 📝 License
 
-## 🐛 Common Issues
-
-### Issue 1: Qdrant connection error
-```
-Error: Connection refused to localhost:6333
-```
-**Solution:**
-```bash
-# Check if Qdrant is running
-docker-compose ps
-
-# Restart Qdrant
-docker-compose restart qdrant
-```
-
-### Issue 2: OpenAI API key error
-```
-Error: Invalid API key
-```
-**Solution:**
-- Check `.env` file has correct `OPENAI_API_KEY`
-- Restart the app after changing `.env`
-
-### Issue 3: PDF parsing fails
-```
-Error: Could not parse PDF
-```
-**Solution:**
-- Ensure PDF is not corrupted
-- Check PDF is text-based (not scanned image)
-- Try with a different PDF
-
-## 📈 What's Next (Week 2)
-
-- [ ] Add LlamaIndex agent system
-- [ ] Implement query planning
-- [ ] Build specialized agents (methodology, results, gaps)
-- [ ] Add MongoDB for paper metadata
-- [ ] Create conversation history
-
-## 🎓 Learning Resources
-
-- [PyMuPDF Documentation](https://pymupdf.readthedocs.io/)
-- [Qdrant Documentation](https://qdrant.tech/documentation/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [LlamaIndex Documentation](https://docs.llamaindex.ai/)
-
-## 📧 Support
-
-If you encounter any issues:
-1. Check the logs: `docker-compose logs app`
-2. Verify all services are running: `docker-compose ps`
-3. Check the API docs: http://localhost:8000/docs
+MIT License
 
 ---
 
-**Status: Week 1 Complete ✅**
-
-You now have:
-- PDF upload and parsing ✅
-- Section-aware chunking ✅
-- Embedding generation ✅
-- Vector search with Qdrant ✅
-- RESTful API ✅
-- Docker containerization ✅
-
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER INTERFACE                          │
-│                     (Web UI or API Request)                     │
-└────────────────────────────┬────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    FASTAPI APPLICATION                          │
-│  ┌────────────────────────────────────────────────────────┐     │
-│  │         LlamaIndex Agent (Query Planner)               │     │
-│  │  • Understands user question                           │     │
-│  │  • Breaks it into retrieval steps                      │     │
-│  │  • Decides what tools to use                           │     │
-│  └────────────────────────────────────────────────────────┘     │
-└────────────────────────────┬────────────────────────────────────┘
-                             ↓
-              ┌──────────────┴──────────────┐
-              ↓                             ↓
-┌─────────────────────────┐   ┌─────────────────────────┐
-│   QDRANT (Vector DB)    │   │   MONGODB (Storage)     │
-│                         │   │                         │
-│ • Stores embeddings     │   │ • Conversation history  │
-│ • Hybrid search         │   │ • Risk assessments      │
-│ • Metadata filtering    │   │ • Audit logs            │
-└────────────┬────────────┘   └─────────────────────────┘
-             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│              RISK ANALYSIS AGENT (LlamaIndex)                   │
-│  • Reads retrieved chunks                                       │
-│  • Identifies risk patterns                                     │
-│  • Assigns severity levels                                      │
-│  • Generates citations                                          │
-└────────────────────────────┬────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                  GUARDRAILS AI (Safety Layer)                   │
-│  • Validates citations exist in source docs                     │
-│  • Checks for hallucinations                                    │
-│  • Enforces response format                                     │
-│  • Triggers refusal if evidence weak                            │
-└────────────────────────────┬────────────────────────────────────┘
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    LANGFUSE (Observability)                     │
-│  • Logs every agent decision                                    │
-│  • Tracks latency and costs                                     │
-│  • Stores prompt versions                                       │
-│  • Enables debugging                                            │
-└─────────────────────────────────────────────────────────────────┘
-                             ↓
-                    FINAL ANSWER TO USER
+Built with ❤️ using LlamaIndex, HuggingFace, and Qdrant
