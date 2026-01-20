@@ -1,9 +1,7 @@
 # Core Framework
-fastapi>=0.104.1
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
-pydantic-settings>=2.1.0
-python-multipart>=0.0.6
+fastapi
+uvicorn[standard]
+python-multipart
 
 # LlamaIndex - Core RAG Framework
 llama-index
@@ -14,16 +12,16 @@ llama-index-readers-file
 # PDF Processing
 PyMuPDF
 
+# Embeddings
+sentence-transformers
+
 # Vector Database
 qdrant-client
 
-# FREE Embeddings (Local)
-sentence-transformers
-torch
-
 # Utilities
-python-dotenv>=1.0.0
+python-dotenv
+pydantic-settings
+requests
 
 # Testing
 pytest
-httpx

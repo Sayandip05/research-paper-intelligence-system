@@ -86,10 +86,9 @@ research-paper-intelligence-system/
 # Clone and navigate
 cd research-paper-intelligence-system
 
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
+# Create virtual environment (fresh install)
+python -m venv venv_clean
+.\venv_clean\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -124,9 +123,16 @@ This will:
 
 ### 6. Start API
 
+**Option 1: Quick Start (Windows)**
+Double-click `run_api.bat` or run:
+```powershell
+.\run_api.bat
+```
+
+**Option 2: Manual Start**
 ```bash
 cd backend
-uvicorn app.main:app --reload
+..\venv_clean\Scripts\uvicorn app.main:app --reload
 ```
 
 Visit: http://localhost:8000/docs

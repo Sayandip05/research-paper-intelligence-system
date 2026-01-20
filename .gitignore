@@ -1,1 +1,17 @@
-﻿venv/
+﻿# Virtual Environments
+venv/
+venv_clean/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Environment Variables
+.env
+
+# MacOS
+.DS_Store
+
+# Temporary Debug Files
+debug_model.py
+verify_system.py
