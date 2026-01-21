@@ -5,6 +5,7 @@ venv_clean/
 # Python Cache
 __pycache__/
 *.pyc
+*.pyo
 
 # Environment Variables
 .env
@@ -15,3 +16,11 @@ __pycache__/
 # Temporary Debug Files
 debug_model.py
 verify_system.py
+
+# Model Cache (optional, can be large)
+.cache/
+
+# IDE
+.vscode/
+.idea/
+

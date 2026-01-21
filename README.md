@@ -11,6 +11,8 @@ flowchart LR
     A[PDFs<br/>corpus/] -->|LlamaIndex<br/>SimpleDirectoryReader| B(LlamaIndex<br/>Smart Chunking)
     B -->|SentenceSplitter| C{Vector Embeddings<br/>768 dimensions}
     C -->|HuggingFace<br/>BGE-base-en-v1.5| D[Qdrant<br/>Vector DB]
+    D -->|Semantic Search| E[Query Engine]
+    E -->|Groq LLM| F[Intelligent Response]
 ```
 
 ## ✅ Current Progress
@@ -25,6 +27,15 @@ flowchart LR
 | **Vector DB** | Qdrant | ✅ Done |
 | **API Framework** | FastAPI | ✅ Done |
 
+### Week 2: Intelligent Query Engine (Completed)
+
+| Component | Technology | Status |
+|-----------|------------|--------|
+| **LLM Integration** | Groq (`openai/gpt-oss-120b`) | ✅ Done |
+| **Query Engine** | LlamaIndex `VectorStoreIndex` | ✅ Done |
+| **RAG Pipeline** | Retrieval + Generation | ✅ Done |
+| **Query API** | `/api/query/query` endpoint | ✅ Done |
+
 ### Features Implemented
 
 - 📄 **PDF Processing**: Automatic text extraction using LlamaIndex
@@ -32,12 +43,15 @@ flowchart LR
 - 🧠 **Free Embeddings**: Local HuggingFace model (no API costs!)
 - 🗄️ **Vector Storage**: Qdrant for fast similarity search
 - 🔍 **Search API**: FastAPI endpoints for querying
+- 🤖 **Intelligent Q&A**: Ask questions and get answers with citations!
+- 💬 **Groq LLM**: Fast, free inference via Groq API
 
 ## 🛠️ Tech Stack
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Framework** | LlamaIndex | RAG orchestration |
+| **LLM** | Groq (openai/gpt-oss-120b) | Response generation |
 | **Embeddings** | BAAI/bge-base-en-v1.5 | Text → 768-dim vectors |
 | **Vector DB** | Qdrant | Similarity search |
 | **PDF Reader** | LlamaIndex + PyMuPDF | Document ingestion |
@@ -55,21 +69,28 @@ research-paper-intelligence-system/
 │   └── app/
 │       ├── api/               # FastAPI routes
 │       │   └── routes/
-│       │       └── search.py
+│       │       ├── search.py      # Vector search endpoints
+│       │       └── query.py       # Intelligent query endpoints (NEW!)
 │       ├── db/
 │       │   └── qdrant_client.py   # Qdrant integration
 │       ├── models/
-│       │   ├── paper.py          # Paper data models
-│       │   └── chunk.py          # Chunk data models
+│       │   ├── paper.py           # Paper data models
+│       │   ├── chunk.py           # Chunk data models
+│       │   └── query.py           # Query request/response models (NEW!)
 │       ├── services/
-│       │   ├── pdf_parser.py     # LlamaIndex PDF parsing
-│       │   ├── chunking.py       # LlamaIndex SentenceSplitter
-│       │   └── embeddings.py     # HuggingFace embeddings
-│       ├── config.py             # Settings & configuration
-│       └── main.py               # FastAPI app
-├── build_corpus.py            # Main ingestion script
-├── docker-compose.yml         # Qdrant container
-├── requirements.txt           # Python dependencies
+│       │   ├── pdf_parser.py      # LlamaIndex PDF parsing
+│       │   ├── chunking.py        # LlamaIndex SentenceSplitter
+│       │   ├── embeddings.py      # HuggingFace embeddings
+│       │   ├── llm_service.py     # Groq LLM integration (NEW!)
+│       │   └── query_engine.py    # Intelligent Query Engine (NEW!)
+│       ├── config.py              # Settings & configuration
+│       └── main.py                # FastAPI app
+├── build_corpus.py             # Main ingestion script
+├── test_query_engine.py        # Query engine test script (NEW!)
+├── run_api.bat                 # Quick start script (Windows)
+├── docker-compose.yml          # Qdrant container
+├── requirements.txt            # Python dependencies
+├── .env                        # Environment variables (not in git)
 └── README.md
 ```
 
@@ -178,8 +199,8 @@ Using **BAAI/bge-base-en-v1.5**:
 ## 🗺️ Roadmap
 
 - [x] Week 1: PDF → Chunks → Embeddings → Qdrant
-- [ ] Week 2: RAG Query Engine with LlamaIndex
-- [ ] Week 3: LLM Integration (Response Generation)
+- [x] Week 2: RAG Query Engine with LlamaIndex + Groq LLM
+- [ ] Week 3: Advanced Features (Multi-document Q&A, Citations)
 - [ ] Week 4: Production Deployment
 
 ## 📝 License

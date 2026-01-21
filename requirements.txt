@@ -7,7 +7,9 @@ python-multipart
 llama-index
 llama-index-vector-stores-qdrant
 llama-index-embeddings-huggingface
+llama-index-llms-groq
 llama-index-readers-file
+groq
 
 # PDF Processing
 PyMuPDF

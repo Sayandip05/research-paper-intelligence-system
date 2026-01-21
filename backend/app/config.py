@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     embedding_dim: int = 768
     
     # LLM Settings
-    llm_model: str = "llama-3.1-70b-versatile"
+    llm_model: str = "openai/gpt-oss-120b"
     llm_temperature: float = 0.1
     
     # Chunking

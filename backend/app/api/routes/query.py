@@ -141,7 +141,7 @@ async def query_health():
         return {
             "status": "healthy",
             "message": "Query engine is ready!",
-            "llm": "Groq (Llama 3.1 70B)",
+            "llm": f"Groq ({settings.llm_model})",
             "embeddings": "BAAI/bge-base-en-v1.5",
             "vector_store": "Qdrant"
         }
