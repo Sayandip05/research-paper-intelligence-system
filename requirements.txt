@@ -27,3 +27,5 @@ requests
 
 # Testing
 pytest
+
+guardrails-ai
