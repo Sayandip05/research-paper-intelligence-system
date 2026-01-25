@@ -1,0 +1,72 @@
+<rail version="0.1">
+<output>
+    <object name="validated_answer">
+        <string 
+            name="answer" 
+            description="The generated answer to the research question"
+            required="true"
+            validators="length: min=50, max=5000"
+            on-fail-length="reask"
+        />
+        
+        <list name="citations" description="List of paper citations used" required="true">
+            <object>
+                <string 
+                    name="paper_title" 
+                    description="Title of the cited paper"
+                    required="true"
+                />
+                <integer 
+                    name="page_start" 
+                    description="Starting page number"
+                    required="true"
+                />
+                <integer 
+                    name="page_end" 
+                    description="Ending page number"
+                    required="true"
+                />
+            </object>
+        </list>
+        
+        <float 
+            name="confidence" 
+            description="Confidence score between 0.0 and 1.0"
+            required="true"
+            validators="valid-range: min=0.0, max=1.0"
+            on-fail-valid-range="fix"
+        />
+        
+        <bool 
+            name="refused" 
+            description="Whether the answer was refused due to lack of evidence"
+            required="false"
+        />
+    </object>
+</output>
+
+<prompt>
+Given the following research paper context and question, provide a well-cited answer.
+
+CONTEXT:
+{{context}}
+
+QUESTION: {{question}}
+
+Requirements:
+1. Answer must be based ONLY on the provided context
+2. Include citations with paper title and page numbers
+3. Set refused=true if the answer cannot be found in context
+4. Confidence should reflect how well the answer is supported by evidence
+
+Provide your response in the following JSON format:
+{
+    "answer": "Your detailed answer here...",
+    "citations": [
+        {"paper_title": "Paper Name", "page_start": 1, "page_end": 2}
+    ],
+    "confidence": 0.85,
+    "refused": false
+}
+</prompt>
+</rail>
