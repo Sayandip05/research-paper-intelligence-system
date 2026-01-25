@@ -75,7 +75,7 @@ class QueryOrchestratorAgent:
         Classify question intent
         
         Types:
-        - factual_extraction: "What datasets were used?"
+        - summary: "What is the paper about?", "Explain the methodology"
         - comparison: "Compare LoRA vs QLoRA"
         - research_gaps: "What are the limitations?"
         """
@@ -86,7 +86,7 @@ class QueryOrchestratorAgent:
 Question: "{question}"
 
 Categories:
-1. factual_extraction - asking for facts, datasets, methods, results
+1. summary - asking for explanations, overviews, facts, datasets, methods, results
 2. comparison - comparing multiple papers or approaches
 3. research_gaps - asking about limitations, future work, open problems
 
@@ -100,27 +100,27 @@ Respond with ONLY the category name, nothing else."""
         elif "gap" in response or "limitation" in response:
             return IntentType.RESEARCH_GAPS
         else:
-            return IntentType.FACTUAL_EXTRACTION
+            return IntentType.SUMMARY
     
     def _determine_sections(self, intent: IntentType, question: str) -> list:
         """Determine which paper sections to target"""
         
         # Default sections by intent
         section_map = {
-            IntentType.FACTUAL_EXTRACTION: ["Experiments", "Methods", "Results", "Full Text"],
-            IntentType.COMPARISON: ["Results", "Methods", "Full Text"],
-            IntentType.RESEARCH_GAPS: ["Discussion", "Conclusion", "Limitations", "Future Work", "Full Text"]
+            IntentType.SUMMARY: ["Abstract", "Introduction", "Methods", "Results"],
+            IntentType.COMPARISON: ["Results", "Methods", "Experiments"],
+            IntentType.RESEARCH_GAPS: ["Discussion", "Conclusion", "Limitations", "Future Work"]
         }
         
-        return section_map.get(intent, ["Full Text"])
+        return section_map.get(intent, ["Abstract", "Introduction"])
     
     def _get_confidence_threshold(self, intent: IntentType) -> float:
         """Set confidence threshold by intent"""
         
         thresholds = {
-            IntentType.FACTUAL_EXTRACTION: 0.6,  # Need high confidence for facts
-            IntentType.COMPARISON: 0.5,          # Medium confidence OK
-            IntentType.RESEARCH_GAPS: 0.4        # Lower threshold for exploratory
+            IntentType.SUMMARY: 0.5,           # Standard threshold for summaries
+            IntentType.COMPARISON: 0.5,        # Medium confidence OK
+            IntentType.RESEARCH_GAPS: 0.4      # Lower threshold for exploratory
         }
         
         return thresholds.get(intent, 0.5)

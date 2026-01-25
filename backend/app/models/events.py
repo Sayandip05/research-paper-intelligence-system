@@ -16,8 +16,8 @@ from llama_index.core.workflow.events import Event
 
 
 class IntentType(str, Enum):
-    """Query intent classification"""
-    FACTUAL_EXTRACTION = "factual_extraction"
+    """Query intent classification - Canonical intent names only"""
+    SUMMARY = "summary"
     COMPARISON = "comparison"
     RESEARCH_GAPS = "research_gaps"
 

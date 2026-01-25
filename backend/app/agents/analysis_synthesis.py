@@ -7,7 +7,7 @@ Consumes: analysis_event
 Emits: stop_event OR human_review_event
 
 Adapts behavior based on intent:
-- factual_extraction
+- summary (with verbosity control)
 - comparison
 - research_gaps
 """
@@ -46,15 +46,18 @@ class AnalysisSynthesisAgent:
         print(f"   Intent: {event.intent_type.value}")
         print(f"   Chunks: {len(event.chunks)}")
         
+        # Detect verbosity hint for summary intent
+        brief_mode = self._is_brief_summary_requested(event.original_question)
+        
         # Route to appropriate synthesis method based on intent
-        if event.intent_type == IntentType.FACTUAL_EXTRACTION:
-            result = self._extract_facts(event)
+        if event.intent_type == IntentType.SUMMARY:
+            result = self._synthesize_summary(event, brief_mode=brief_mode)
         elif event.intent_type == IntentType.COMPARISON:
             result = self._compare_papers(event)
         elif event.intent_type == IntentType.RESEARCH_GAPS:
             result = self._identify_gaps(event)
         else:
-            result = self._extract_facts(event)  # Default
+            result = self._synthesize_summary(event, brief_mode=False)  # Default
         
         # Check confidence
         if result["confidence"] >= event.confidence_threshold:
@@ -81,13 +84,39 @@ class AnalysisSynthesisAgent:
                 ]
             )
     
-    def _extract_facts(self, event: AnalysisEvent) -> dict:
-        """Extract factual information from evidence"""
+    def _is_brief_summary_requested(self, question: str) -> bool:
+        """
+        Detect if user requested a brief/short summary.
         
+        Rule-based, NO LLM - just keyword detection.
+        """
+        if not question:
+            return False
+        
+        question_lower = question.lower()
+        
+        # Brevity hint keywords
+        brevity_hints = [
+            "small", "short", "brief", "quick", "concise",
+            "simple", "tldr", "tl;dr", "in short", "briefly"
+        ]
+        
+        return any(hint in question_lower for hint in brevity_hints)
+    
+    def _synthesize_summary(self, event: AnalysisEvent, brief_mode: bool = False) -> dict:
+        """
+        Synthesize summary with verbosity control.
+        
+        Args:
+            event: AnalysisEvent with chunks and question
+            brief_mode: If True, produce concise output (bullet points)
+        """
         # Build context from chunks
         context = self._build_context(event.chunks)
         
-        prompt = f"""You are analyzing research papers to answer a factual question.
+        if brief_mode:
+            # Brief mode - concise output
+            prompt = f"""You are summarizing research papers CONCISELY.
 
 CONTEXT FROM PAPERS:
 {context}
@@ -95,10 +124,27 @@ CONTEXT FROM PAPERS:
 QUESTION: {event.original_question}
 
 RULES:
-1. Extract facts ONLY from the provided context
+1. Keep your answer SHORT - 3-5 bullet points maximum
+2. Use simple, direct language
+3. Cite the paper title for key claims
+4. Focus only on the most important points
+5. No lengthy explanations
+
+Provide a BRIEF summary:"""
+        else:
+            # Standard mode - full summary
+            prompt = f"""You are analyzing research papers to answer a question.
+
+CONTEXT FROM PAPERS:
+{context}
+
+QUESTION: {event.original_question}
+
+RULES:
+1. Extract information ONLY from the provided context
 2. Cite the paper title for every claim
 3. If information is not in context, say "Not found in provided papers"
-4. Be specific and factual
+4. Be specific and thorough
 5. Format citations as [Paper Title, Page X]
 
 Provide your answer:"""
@@ -108,14 +154,21 @@ Provide your answer:"""
         # Extract citations
         citations = self._extract_citations(event.chunks)
         
-        # Estimate confidence (simple heuristic)
+        # Estimate confidence
         confidence = self._estimate_confidence(answer, event.chunks)
+        
+        if brief_mode:
+            print(f"   📝 Brief mode: concise summary generated")
         
         return {
             "answer": answer,
             "citations": citations,
             "confidence": confidence
         }
+    
+    def _extract_facts(self, event: AnalysisEvent) -> dict:
+        """Extract factual information from evidence (legacy method)"""
+        return self._synthesize_summary(event, brief_mode=False)
     
     def _compare_papers(self, event: AnalysisEvent) -> dict:
         """Compare approaches across papers"""
