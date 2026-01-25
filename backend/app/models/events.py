@@ -12,6 +12,7 @@ Only 5 events allowed:
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from enum import Enum
+from llama_index.core.workflow.events import Event
 
 
 class IntentType(str, Enum):
@@ -21,14 +22,14 @@ class IntentType(str, Enum):
     RESEARCH_GAPS = "research_gaps"
 
 
-class StartEvent(BaseModel):
+class StartEvent(Event):
     """Initial event from user question"""
     question: str
     session_id: Optional[str] = None
     human_constraints: Optional[Dict[str, Any]] = None
 
 
-class RetrievalEvent(BaseModel):
+class RetrievalEvent(Event):
     """Event to trigger evidence retrieval"""
     intent_type: IntentType
     target_sections: List[str] = Field(default_factory=list)
@@ -48,7 +49,7 @@ class EvidenceChunk(BaseModel):
     score: float
 
 
-class AnalysisEvent(BaseModel):
+class AnalysisEvent(Event):
     """Event to trigger analysis and synthesis"""
     intent_type: IntentType
     chunks: List[EvidenceChunk]
@@ -57,7 +58,7 @@ class AnalysisEvent(BaseModel):
     original_question: str
 
 
-class HumanReviewEvent(BaseModel):
+class HumanReviewEvent(Event):
     """Event to request human intervention"""
     reason: str
     chunks: Optional[List[EvidenceChunk]] = None
@@ -66,7 +67,7 @@ class HumanReviewEvent(BaseModel):
     suggested_actions: List[str] = Field(default_factory=list)
 
 
-class StopEvent(BaseModel):
+class StopEvent(Event):
     """Final event with answer or refusal"""
     answer: Optional[str] = None
     citations: List[Dict[str, Any]] = Field(default_factory=list)

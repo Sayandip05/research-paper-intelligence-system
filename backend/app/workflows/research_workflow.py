@@ -11,7 +11,8 @@ from llama_index.core.workflow import (
 from llama_index.core.workflow.events import Event
 
 from app.models.events import (
-    RetrievalEvent, AnalysisEvent, HumanReviewEvent, IntentType
+    RetrievalEvent, AnalysisEvent, HumanReviewEvent, IntentType,
+    StopEvent as InternalStopEvent
 )
 from app.agents.query_orchestrator import QueryOrchestratorAgent
 from app.agents.evidence_retrieval import EvidenceRetrievalAgent
@@ -109,7 +110,7 @@ class ResearchWorkflow(Workflow):
         result = self.analyzer.process(ev)
         
         # Convert to LlamaIndex StopEvent if final
-        if isinstance(result, app.models.events.StopEvent):
+        if isinstance(result, InternalStopEvent):
             return StopEvent(result={
                 "answer": result.answer,
                 "citations": result.citations,

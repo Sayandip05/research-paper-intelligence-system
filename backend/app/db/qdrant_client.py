@@ -1,6 +1,6 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
-from typing import List
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchAny
+from typing import List, Optional
 import uuid
 from app.config import get_settings
 from app.models.chunk import Chunk, SearchResult, ChunkMetadata
@@ -64,12 +64,54 @@ class QdrantService:
         query_vector: List[float],
         limit: int = 5
     ) -> List[SearchResult]:
-        """Search for similar chunks"""
-        results = self.client.search(
+        """Search for similar chunks (unfiltered - for backward compatibility)"""
+        return self.search_with_filter(query_vector, limit=limit, allowed_sections=None)
+    
+    def search_with_filter(
+        self,
+        query_vector: List[float],
+        limit: int = 5,
+        allowed_sections: Optional[List[str]] = None
+    ) -> List[SearchResult]:
+        """
+        Search for similar chunks WITH SECTION FILTERING.
+        
+        This is the PRIMARY method for intent-aware retrieval.
+        
+        Args:
+            query_vector: Embedding of the query
+            limit: Max results to return
+            allowed_sections: List of canonical section names to include.
+                              If None, searches all sections (unfiltered).
+        
+        Returns:
+            List of SearchResult with metadata
+        """
+        # Build filter if sections specified
+        query_filter = None
+        if allowed_sections:
+            # Always exclude "Unknown" unless explicitly requested
+            filtered_sections = [s for s in allowed_sections if s != "Unknown"]
+            
+            if filtered_sections:
+                query_filter = Filter(
+                    must=[
+                        FieldCondition(
+                            key="section_title",
+                            match=MatchAny(any=filtered_sections)
+                        )
+                    ]
+                )
+                print(f"  🔍 Filtering to sections: {filtered_sections}")
+        
+        # Execute search with filter
+        results = self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_vector,
-            limit=limit
-        )
+            query=query_vector,
+            query_filter=query_filter,
+            limit=limit,
+            with_payload=True
+        ).points
         
         search_results = []
         for result in results:
@@ -87,6 +129,9 @@ class QdrantService:
                 )
             )
             search_results.append(search_result)
+        
+        if allowed_sections:
+            print(f"  📊 Retrieved {len(search_results)} chunks from allowed sections")
         
         return search_results
     

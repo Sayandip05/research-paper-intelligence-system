@@ -49,36 +49,8 @@ class LlamaIndexChunker:
         Returns:
             List of chunks with embeddings ready to generate
         """
-        # Convert paper to LlamaIndex Document
-        document = Document(
-            text=paper.raw_text,
-            metadata={
-                "paper_id": paper.paper_id,
-                "title": paper.metadata.title,
-                "num_pages": paper.metadata.num_pages
-            }
-        )
-        
-        # Use LlamaIndex to create nodes (chunks)
-        nodes = self.splitter.get_nodes_from_documents([document])
-        
-        # Convert LlamaIndex nodes to our Chunk objects
-        chunks = []
-        for node in nodes:
-            chunk = Chunk(
-                chunk_id=str(uuid.uuid4()),
-                text=node.get_content(),
-                metadata=ChunkMetadata(
-                    paper_id=paper.paper_id,
-                    paper_title=paper.metadata.title,
-                    section_title="Full Text",
-                    page_start=1,
-                    page_end=paper.metadata.num_pages
-                )
-            )
-            chunks.append(chunk)
-        
-        return chunks
+        # Use section-aware chunking by default for proper metadata
+        return self.chunk_with_metadata(paper, section_aware=True)
     
     def chunk_with_metadata(
         self,

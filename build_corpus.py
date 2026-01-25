@@ -14,7 +14,7 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 
-from app.services.pdf_parser import PDFParser
+from app.services.pdf_parser import SectionAwarePDFParser
 from app.services.chunking import Chunker
 from app.services.embeddings import get_embedding_service
 from app.db.qdrant_client import QdrantService
@@ -71,7 +71,7 @@ def build_corpus():
         try:
             # Parse PDF
             print("   [1/4] Parsing PDF...")
-            parser = PDFParser(str(pdf_path))
+            parser = SectionAwarePDFParser(str(pdf_path))
             paper = parser.parse()
             # Note: LlamaIndex SimpleDirectoryReader handles cleanup automatically
             print(f"      ✓ Title: {paper.metadata.title}")
