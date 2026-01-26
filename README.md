@@ -46,9 +46,27 @@ flowchart LR
 | **Streamlit Frontend** | Temporary demo UI | ✅ Done |
 | **3-Agent Workflow** | Query → Retrieval → Analysis | ✅ Done |
 
-## 🏗️ Architecture
+### Week 4: Guardrails AI ✅
+| Component | Technology | Status |
+|-----------|------------|--------|
+| **RAIL Schema** | Guardrails AI RAIL format | ✅ Done |
+| **Pydantic Validation** | `ValidatedAnswer` model | ✅ Done |
+| **Citation Grounding** | Rule-based verification | ✅ Done |
+| **Hallucination Detection** | Heuristic-based checks | ✅ Done |
+| **Auto-Retry** | Schema validation retry (max 1) | ✅ Done |
+| **HITL Escalation** | Guardrails → HITL pipeline | ✅ Done |
 
-### Multi-Agent Workflow
+### Week 5: Current State ✅
+**Fully Operational Production-Grade RAG System**
+- � All core features implemented
+- 🛡️ Guardrails AI validation active
+- 📊 Multi-agent workflow operational
+- 🔍 Section-aware retrieval working
+- 💬 Streamlit demo UI available
+
+## �🏗️ Architecture
+
+### Multi-Agent Workflow with Guardrails
 ```
 User Question
     ↓
@@ -71,6 +89,15 @@ User Question
 │  Analysis & Synthesis  │  → LLM Reasoning
 │  Agent                 │  → Cited Answer
 └────────────────────────┘
+    ↓
+┌────────────────────────┐
+│  Guardrails AI         │  → Schema Validation
+│  Validation Layer      │  → Citation Grounding
+│                        │  → Hallucination Detection
+└────────────────────────┘
+    ↓
+• If Valid → Stop Event (Answer)
+• If Invalid → HITL Event (Review Required)
 ```
 
 ### Intent Classification System
@@ -278,12 +305,21 @@ llm_model: str = "openai/gpt-oss-120b"
 - Produces concise bullet-point answers
 - No LLM reasoning for verbosity
 
+### Guardrails AI Validation
+- **Pydantic Schema Enforcement**: Strict JSON output with `ValidatedAnswer` model
+- **Citation Grounding**: Verifies all citations exist in retrieved chunks
+- **Hallucination Detection**: Heuristic-based pattern matching
+- **Auto-Retry**: Automatically re-asks LLM once if validation fails
+- **HITL Escalation**: Triggers human review when quality is insufficient
+
 ## 🗺️ Roadmap
 
 - [x] **Week 1**: PDF → Chunks → Embeddings → Qdrant
 - [x] **Week 2**: RAG Query Engine with LlamaIndex + Groq LLM
 - [x] **Week 3**: Multi-Agent Workflow + HITL + Section Filtering
-- [ ] **Week 4**: Guardrails & Production Deployment
+- [x] **Week 4**: Guardrails AI + Schema Validation
+- [x] **Week 5**: Production-Grade RAG System (Current)
+- [ ] **Week 6**: Cloud Deployment + Monitoring
 
 ## 📝 License
 
