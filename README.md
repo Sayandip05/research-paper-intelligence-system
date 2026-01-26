@@ -145,45 +145,60 @@ Human review is required if ANY of:
 
 ```
 research-paper-intelligence-system/
-├── corpus/                         # Put your PDFs here
+├── corpus/                             # Research papers (PDFs)
 │   ├── paper1.pdf
 │   └── paper2.pdf
-├── backend/
+│
+├── backend/                            # FastAPI backend
 │   └── app/
-│       ├── api/routes/
-│       │   ├── search.py           # Vector search endpoints
-│       │   ├── query.py            # Intelligent query endpoints
-│       │   └── workflow_query.py   # Workflow-based query
-│       ├── agents/
-│       │   ├── query_orchestrator.py   # Agent 1: Intent & routing
-│       │   ├── evidence_retrieval.py   # Agent 2: Section-filtered search
-│       │   └── analysis_synthesis.py   # Agent 3: LLM reasoning
+│       ├── api/
+│       │   └── routes/
+│       │       ├── search.py           # Vector search endpoints
+│       │       ├── query.py            # Query endpoints
+│       │       └── workflow_query.py   # Workflow-based query
+│       │
+│       ├── agents/                     # Multi-agent system
+│       │   ├── query_orchestrator.py   # Agent 1: Intent classification
+│       │   ├── evidence_retrieval.py   # Agent 2: Vector retrieval
+│       │   └── analysis_synthesis.py   # Agent 3: LLM synthesis
+│       │
 │       ├── db/
-│       │   └── qdrant_client.py    # Qdrant with metadata filters
-│       ├── models/
-│       │   ├── paper.py            # Paper data models
-│       │   ├── chunk.py            # Chunk data models
-│       │   ├── query.py            # Query request/response
-│       │   └── events.py           # Workflow events
-│       ├── services/
-│       │   ├── pdf_parser.py       # SectionAwarePDFParser
-│       │   ├── chunking.py         # Section-aware chunking
-│       │   ├── embeddings.py       # HuggingFace embeddings
-│       │   ├── llm_service.py      # Groq LLM integration
-│       │   ├── intent_classifier.py # Rule-based intent detection
-│       │   ├── hitl_gate.py        # Human-in-the-loop controls
-│       │   └── query_engine.py     # Intelligent Query Engine
+│       │   └── qdrant_client.py        # Qdrant with metadata filters
+│       │
+│       ├── guardrails/                 # Guardrails AI schemas
+│       │   └── answer_schema.rail      # RAIL validation schema
+│       │
+│       ├── models/                     # Data models
+│       │   ├── paper.py                # Paper metadata
+│       │   ├── chunk.py                # Chunk + SearchResult
+│       │   ├── query.py                # Query request/response
+│       │   └── events.py               # Workflow events (5 events)
+│       │
+│       ├── services/                   # Core services
+│       │   ├── pdf_parser.py           # Section-aware PDF parser
+│       │   ├── chunking.py             # Canonical section chunking
+│       │   ├── embeddings.py           # HuggingFace embeddings
+│       │   ├── llm_service.py          # Groq LLM integration
+│       │   ├── intent_classifier.py    # Rule-based intent detection
+│       │   ├── hitl_gate.py            # Human-in-the-loop controls
+│       │   ├── guardrails_service.py   # Guardrails AI validation
+│       │   ├── memory.py               # Memory service
+│       │   └── query_engine.py         # Query engine
+│       │
 │       ├── workflows/
-│       │   └── research_workflow.py # LlamaIndex Workflow
-│       ├── config.py               # Settings & configuration
-│       └── main.py                 # FastAPI app
-├── frontend/
-│   └── app.py                      # Streamlit UI (temporary)
-├── build_corpus.py                 # Main ingestion script
-├── interactive_query.py            # CLI Q&A interface
-├── docker-compose.yml              # Qdrant container
-├── requirements.txt                # Python dependencies
-├── .env                            # Environment variables
+│       │   └── research_workflow.py    # LlamaIndex Workflow
+│       │
+│       ├── config.py                   # Settings & env vars
+│       └── main.py                     # FastAPI app
+│
+├── frontend/                           # Streamlit UI (temporary)
+│   └── app.py                          # Demo UI
+│
+├── build_corpus.py                     # Ingestion pipeline
+├── interactive_query.py                # CLI Q&A interface
+├── docker-compose.yml                  # Qdrant container
+├── requirements.txt                    # Python dependencies
+├── .env                                # Environment variables
 └── README.md
 ```
 
