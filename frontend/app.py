@@ -1,20 +1,20 @@
 """
-Minimal Streamlit Frontend for Research Paper RAG
+Streamlit Frontend for Research Paper RAG - Hybrid Search
 
-This is a TEMPORARY UI for demo/testing.
-Production UI will be custom HTML/CSS/JS later.
+Features:
+- PDF Upload with automatic hybrid processing
+- Hybrid search (Dense + BM42 + RRF Fusion)
+- Query with LLM synthesis
 
 Run with: streamlit run frontend/app.py
 """
 
 import streamlit as st
 import requests
-import os
-from pathlib import Path
+import time
 
 # Config
 API_BASE_URL = "http://localhost:8000"
-CORPUS_FOLDER = Path(__file__).parent.parent / "corpus"
 
 # Page config
 st.set_page_config(
@@ -25,26 +25,68 @@ st.set_page_config(
 
 # Header
 st.title("📚 Research Paper Q&A")
-st.caption("Temporary demo UI - Week 3 RAG System")
+st.caption("Hybrid RAG System - BM42 + Dense Search with RRF Fusion")
 
-# Sidebar - PDF Upload
+# Sidebar - PDF Upload (Auto-processing)
 st.sidebar.header("📄 Upload PDF")
 uploaded_file = st.sidebar.file_uploader(
     "Upload a research paper (PDF)",
     type=["pdf"],
-    help="Upload a PDF to add to the corpus"
+    help="PDF will be automatically processed with hybrid embeddings"
 )
 
 if uploaded_file:
-    # Save uploaded file to corpus folder
-    os.makedirs(CORPUS_FOLDER, exist_ok=True)
-    save_path = CORPUS_FOLDER / uploaded_file.name
-    
-    with open(save_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    
-    st.sidebar.success(f"✅ Uploaded: {uploaded_file.name}")
-    st.sidebar.info("⚠️ Run `python build_corpus.py` to index this PDF")
+    with st.sidebar.status("Uploading and processing...") as status:
+        try:
+            # Upload via API (auto-processing)
+            files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
+            response = requests.post(f"{API_BASE_URL}/api/upload", files=files, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                status.update(label="✅ Processing started!", state="running")
+                st.sidebar.success(f"Uploaded: {uploaded_file.name}")
+                
+                # Poll for status
+                for i in range(30):  # Wait up to 30 seconds
+                    time.sleep(1)
+                    status_resp = requests.get(
+                        f"{API_BASE_URL}/api/upload/status/{uploaded_file.name}",
+                        timeout=5
+                    )
+                    if status_resp.status_code == 200:
+                        proc_status = status_resp.json()
+                        if proc_status.get("status") == "completed":
+                            status.update(label="✅ Processing complete!", state="complete")
+                            st.sidebar.success(f"Created {proc_status.get('chunks_created', 0)} chunks")
+                            break
+                        elif proc_status.get("status") == "failed":
+                            status.update(label="❌ Processing failed", state="error")
+                            st.sidebar.error(proc_status.get("error", "Unknown error"))
+                            break
+            else:
+                st.sidebar.error(f"Upload failed: {response.text}")
+                
+        except requests.exceptions.ConnectionError:
+            st.sidebar.error("❌ Cannot connect to backend")
+        except Exception as e:
+            st.sidebar.error(f"Error: {str(e)}")
+
+# Sidebar - Corpus Info
+st.sidebar.divider()
+st.sidebar.header("📊 Corpus")
+try:
+    stats_resp = requests.get(f"{API_BASE_URL}/api/corpus/stats", timeout=5)
+    if stats_resp.status_code == 200:
+        stats = stats_resp.json()
+        st.sidebar.metric("Total Chunks", stats.get("total_chunks", 0))
+        st.sidebar.caption(f"Collection: {stats.get('collection', 'N/A')}")
+        if stats.get("hybrid_enabled"):
+            st.sidebar.success("🔀 Hybrid Search: Active")
+        else:
+            st.sidebar.info("📊 Dense Search Only")
+except:
+    pass
 
 # Sidebar - API Health
 st.sidebar.divider()
@@ -63,6 +105,13 @@ except requests.exceptions.ConnectionError:
 # Main - Query Section
 st.header("💬 Ask a Question")
 
+# Search mode toggle
+search_mode = st.radio(
+    "Search Mode",
+    ["🔀 Hybrid Search (Dense + BM42)", "📊 Dense Only"],
+    horizontal=True
+)
+
 # Question input
 question = st.text_input(
     "Your question about the research papers:",
@@ -74,51 +123,92 @@ col1, col2 = st.columns(2)
 with col1:
     top_k = st.slider("Number of sources", 1, 10, 5)
 with col2:
-    response_mode = st.selectbox("Response mode", ["compact", "refine", "tree_summarize"])
+    sections = st.multiselect(
+        "Filter sections (optional)",
+        ["Abstract", "Introduction", "Methods", "Results", "Discussion", "Conclusion"],
+        default=[]
+    )
 
 # Submit button
 if st.button("🔍 Get Answer", type="primary", disabled=not question):
-    with st.spinner("Thinking..."):
+    with st.spinner("Searching with hybrid retrieval..."):
         try:
-            # Call API
-            response = requests.post(
-                f"{API_BASE_URL}/api/query",
-                json={
-                    "question": question,
-                    "similarity_top_k": top_k,
-                    "response_mode": response_mode
-                },
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
+            if "Hybrid" in search_mode:
+                # Use hybrid search API
+                search_resp = requests.post(
+                    f"{API_BASE_URL}/api/search/hybrid",
+                    json={
+                        "query": question,
+                        "top_k": top_k,
+                        "sections": sections if sections else None
+                    },
+                    timeout=30
+                )
                 
-                # Check for HITL response
-                if result.get("status") == "human_review_required":
-                    st.warning("⚠️ Human Review Required")
-                    st.info(f"**Reason:** {result.get('reason', 'Low confidence')}")
-                    st.caption(f"Intent: {result.get('intent', 'N/A')}")
-                    st.caption(f"Suggestion: {result.get('suggestion', 'Please rephrase your question.')}")
+                if search_resp.status_code == 200:
+                    search_result = search_resp.json()
+                    
+                    st.info(f"🔀 Mode: {search_result.get('mode', 'hybrid')} | Papers: {search_result.get('paper_coverage', 0)}")
+                    
+                    # Now call LLM query for synthesis
+                    response = requests.post(
+                        f"{API_BASE_URL}/api/query",
+                        json={
+                            "question": question,
+                            "similarity_top_k": top_k,
+                            "response_mode": "compact"
+                        },
+                        timeout=60
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        
+                        # Check for HITL response
+                        if result.get("status") == "human_review_required":
+                            st.warning("⚠️ Human Review Required")
+                            st.info(f"**Reason:** {result.get('reason', 'Low confidence')}")
+                        else:
+                            st.success("✅ Answer")
+                            st.markdown(result.get("answer", "No answer generated"))
+                            
+                            # Sources from search
+                            st.divider()
+                            st.subheader(f"📖 Sources ({len(search_result.get('results', []))})")
+                            for i, source in enumerate(search_result.get("results", []), 1):
+                                with st.expander(f"Source {i}: {source.get('paper_title', 'Unknown')}"):
+                                    st.caption(f"Section: {source.get('section', 'N/A')} | Score: {source.get('score', 0):.4f}")
+                                    st.text(source.get("text", ""))
                 else:
-                    # Normal answer
+                    st.error(f"Search failed: {search_resp.status_code}")
+            else:
+                # Dense-only mode (original API)
+                response = requests.post(
+                    f"{API_BASE_URL}/api/query",
+                    json={
+                        "question": question,
+                        "similarity_top_k": top_k,
+                        "response_mode": "compact"
+                    },
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
                     st.success("✅ Answer")
                     st.markdown(result.get("answer", "No answer generated"))
                     
-                    # Sources
                     sources = result.get("sources", [])
                     if sources:
                         st.divider()
                         st.subheader(f"📖 Sources ({len(sources)})")
                         for i, source in enumerate(sources, 1):
                             with st.expander(f"Source {i}: {source.get('paper_title', 'Unknown')}"):
-                                st.caption(f"Section: {source.get('section', 'N/A')}")
-                                st.caption(f"Score: {source.get('score', 'N/A'):.3f}")
+                                st.caption(f"Section: {source.get('section_title', 'N/A')}")
                                 st.text(source.get("text", "")[:500] + "...")
-            else:
-                st.error(f"❌ API Error: {response.status_code}")
-                st.json(response.json())
-                
+                else:
+                    st.error(f"Query failed: {response.status_code}")
+                    
         except requests.exceptions.ConnectionError:
             st.error("❌ Cannot connect to backend. Is FastAPI running?")
         except requests.exceptions.Timeout:
@@ -147,4 +237,4 @@ for i, example in enumerate(example_queries):
 
 # Footer
 st.divider()
-st.caption("🔬 Week 3: Event-Driven Multi-Agent Workflow | Temporary Demo UI")
+st.caption("🔬 Hybrid RAG System v4.0 | BM42 + Dense + RRF Fusion")
