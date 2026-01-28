@@ -136,14 +136,20 @@ async def simple_query(question: str, top_k: int = 5):
 @router.get("/query/health")
 async def query_health():
     """Check if query engine is ready"""
+    from app.config import get_settings
+    settings = get_settings()
+    
     try:
         query_engine = get_query_engine()
         return {
             "status": "healthy",
             "message": "Query engine is ready!",
-            "llm": f"Groq ({settings.llm_model})",
-            "embeddings": "BAAI/bge-base-en-v1.5",
-            "vector_store": "Qdrant"
+            "llm": settings.llm_model,
+            "dense_embeddings": settings.embedding_model,
+            "sparse_embeddings": settings.sparse_embedding_model if settings.enable_hybrid_search else "disabled",
+            "hybrid_search": settings.enable_hybrid_search,
+            "vector_store": "Qdrant",
+            "collection": settings.qdrant_collection_name
         }
     except Exception as e:
         return {
