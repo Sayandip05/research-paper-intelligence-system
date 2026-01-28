@@ -35,4 +35,5 @@ motor
 # Frontend (Temporary)
 streamlit
 
-rank-bm25
+# Sparse Embeddings (BM42 Hybrid Search)
+fastembed

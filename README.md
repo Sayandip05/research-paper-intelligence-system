@@ -138,7 +138,9 @@ References, Appendix, Unknown
 Human review is required if ANY of:
 - `retrieved_chunks_count < 2`
 - `intent_confidence < 0.6`
-- `top_similarity_score < 0.5`
+- `paper_coverage == 0`
+
+> **Note:** Hybrid retrieval scores are rank-based (RRF) rather than absolute similarity values; confidence is computed using evidence coverage and intent reliability instead of raw similarity thresholds.
 
 ## 🛠️ Tech Stack
 

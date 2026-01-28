@@ -15,7 +15,6 @@ from app.models.chunk import SearchResult
 # HITL Trigger Thresholds (MANDATORY)
 MIN_CHUNKS_REQUIRED = 2
 MIN_INTENT_CONFIDENCE = 0.6
-MIN_SIMILARITY_SCORE = 0.5
 
 
 @dataclass
@@ -27,7 +26,7 @@ class HITLDecision:
     intent: str
     intent_confidence: float
     retrieved_chunks_count: int
-    top_similarity_score: float
+    paper_coverage: int
 
 
 def evaluate_hitl_gate(
@@ -41,7 +40,7 @@ def evaluate_hitl_gate(
     HITL is triggered if ANY of:
     - retrieved_chunks_count < 2
     - intent_confidence < 0.6
-    - top_similarity_score < 0.5
+    - paper_coverage == 0
     
     Args:
         intent: Detected intent name
@@ -52,7 +51,9 @@ def evaluate_hitl_gate(
         HITLDecision with proceed/block decision and reason
     """
     chunks_count = len(retrieved_chunks)
-    top_score = retrieved_chunks[0].score if retrieved_chunks else 0.0
+    paper_coverage = len(
+        {chunk.metadata.paper_id for chunk in retrieved_chunks if chunk.metadata.paper_id}
+    )
     
     reasons = []
     
@@ -63,8 +64,8 @@ def evaluate_hitl_gate(
     if intent_confidence < MIN_INTENT_CONFIDENCE:
         reasons.append(f"Low intent confidence: {intent_confidence:.2f} (minimum: {MIN_INTENT_CONFIDENCE})")
     
-    if top_score < MIN_SIMILARITY_SCORE:
-        reasons.append(f"Weak similarity: top score {top_score:.3f} (minimum: {MIN_SIMILARITY_SCORE})")
+    if paper_coverage == 0:
+        reasons.append("No paper coverage in retrieved evidence")
     
     requires_review = len(reasons) > 0
     
@@ -75,7 +76,7 @@ def evaluate_hitl_gate(
         intent=intent,
         intent_confidence=intent_confidence,
         retrieved_chunks_count=chunks_count,
-        top_similarity_score=top_score
+        paper_coverage=paper_coverage
     )
 
 
@@ -91,7 +92,7 @@ def format_hitl_response(decision: HITLDecision) -> dict:
             "status": "proceed",
             "intent": decision.intent,
             "retrieved_chunks": decision.retrieved_chunks_count,
-            "top_similarity": decision.top_similarity_score
+            "paper_coverage": decision.paper_coverage
         }
     
     return {
@@ -100,7 +101,7 @@ def format_hitl_response(decision: HITLDecision) -> dict:
         "intent": decision.intent,
         "intent_confidence": decision.intent_confidence,
         "retrieved_chunks": decision.retrieved_chunks_count,
-        "top_similarity": decision.top_similarity_score,
+        "paper_coverage": decision.paper_coverage,
         "suggestion": "Please rephrase your question or confirm if you want to proceed with limited evidence."
     }
 
@@ -114,12 +115,12 @@ if __name__ == "__main__":
     print("="*70)
     
     # Mock search results
-    def make_result(score: float) -> SearchResult:
+    def make_result(paper_id: str, score: float) -> SearchResult:
         return SearchResult(
             text="Sample chunk",
             score=score,
             metadata=ChunkMetadata(
-                paper_id="test",
+                paper_id=paper_id,
                 paper_title="Test Paper",
                 section_title="Methods",
                 page_start=1,
@@ -129,19 +130,18 @@ if __name__ == "__main__":
     
     # Test cases
     test_cases = [
-        ("High confidence", "methodology", 1.0, [make_result(0.8), make_result(0.7), make_result(0.6)]),
-        ("Low chunks", "methodology", 1.0, [make_result(0.8)]),
-        ("Low intent conf", "general", 0.5, [make_result(0.8), make_result(0.7)]),
-        ("Low similarity", "methodology", 1.0, [make_result(0.3), make_result(0.2)]),
+        ("Good coverage (RRF scores)", "methodology", 1.0, [make_result("p1", 0.016), make_result("p1", 0.015), make_result("p2", 0.008)]),
+        ("Low chunks", "methodology", 1.0, [make_result("p1", 0.8)]),
+        ("Low intent conf", "general", 0.5, [make_result("p1", 0.8), make_result("p2", 0.7)]),
+        ("No paper coverage", "methodology", 1.0, [make_result("", 0.8), make_result("", 0.7)]),
         ("No chunks", "methodology", 1.0, []),
     ]
     
     for name, intent, conf, chunks in test_cases:
         decision = evaluate_hitl_gate(intent, conf, chunks)
-        response = format_hitl_response(decision)
         
         status = "✅ PROCEED" if decision.should_proceed else "⚠️ REVIEW"
         print(f"\n  {name}: {status}")
-        print(f"    Intent: {intent}, Conf: {conf}, Chunks: {len(chunks)}")
+        print(f"    Intent: {intent}, Conf: {conf}, Chunks: {len(chunks)}, Papers: {decision.paper_coverage}")
         if decision.reason:
             print(f"    Reason: {decision.reason}")
