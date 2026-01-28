@@ -122,7 +122,7 @@ class SemanticChunker:
         Note: This requires embeddings during chunking
         More expensive but better quality chunks
         """
-        # We'll implement this in Week 2 when we have LlamaIndex fully integrated
+        # TODO: Implement with LlamaIndex fully integrated
         pass
 
 
@@ -138,7 +138,7 @@ class SentenceWindowChunker:
         This creates overlapping sentence windows
         Better context preservation
         """
-        # We'll implement this in Week 2
+        # TODO: Implement
         pass
 
 

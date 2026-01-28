@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Interactive Query - Ask your own questions!
-Uses Week 3 Workflow System
+Uses Hybrid RAG Workflow System
 """
 
 import sys
@@ -14,7 +14,7 @@ from app.workflows.research_workflow import get_workflow
 
 async def main():
     print("\n" + "="*70)
-    print("  🤖 RESEARCH PAPER Q&A - Interactive Mode (Week 3 Workflow)")
+    print("  🤖 RESEARCH PAPER Q&A - Interactive Mode (Hybrid RAG)")
     print("="*70)
     print("\n🔧 Initializing 3-agent workflow system...")
     

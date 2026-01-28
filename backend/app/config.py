@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     qdrant_port: int = 6333
     qdrant_collection_name: str = "research_papers_hybrid"  # 🆕 New collection for hybrid
     
-    # MongoDB (NEW - Week 3)
+    # MongoDB
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "research_papers"
     
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     chunk_overlap: int = 200
     similarity_top_k: int = 5
     
-    # Workflow (NEW - Week 3)
+    # Workflow Settings
     enable_guardrails: bool = True
     confidence_threshold: float = 0.5
     

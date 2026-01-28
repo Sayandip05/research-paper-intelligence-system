@@ -13,7 +13,7 @@ app.include_router(upload.router, prefix="/api", tags=["upload"])
 
 @app.get("/")
 def root():
-    return {"message": "Week 3: Multi-Agent Workflow", "status": "running"}
+    return {"message": "Hybrid RAG System", "status": "running"}
 
 @app.get("/health")
 def health():

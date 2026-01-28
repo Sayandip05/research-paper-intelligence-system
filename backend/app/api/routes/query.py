@@ -1,5 +1,5 @@
 """
-Intelligent Query API Routes - Week 2
+Intelligent Query API Routes
 
 This is the main endpoint users will use!
 """
@@ -14,7 +14,7 @@ router = APIRouter()
 @router.post("/query", response_model=QueryResponse)
 async def intelligent_query(request: QueryRequest):
     """
-    🧠 Intelligent Query - Week 2 Main Feature!
+    🧠 Intelligent Query Endpoint
     
     Ask questions about your research papers and get smart answers with citations.
     

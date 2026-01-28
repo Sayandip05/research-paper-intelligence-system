@@ -22,7 +22,7 @@ class LlamaIndexPDFParser:
     ✅ Automatic metadata extraction
     ✅ Built-in chunking support
     ✅ Production-tested
-    ✅ Integrates with Week 2 RAG pipeline
+    ✅ Integrates with RAG pipeline
     """
     
     def __init__(self, file_path: str):
@@ -124,7 +124,7 @@ class LlamaIndexPDFParser:
         """
         Get raw LlamaIndex documents
         
-        Useful for Week 2 when building RAG pipeline!
+        Useful when building RAG pipeline!
         You can directly feed these to VectorStoreIndex
         """
         documents = SimpleDirectoryReader(
