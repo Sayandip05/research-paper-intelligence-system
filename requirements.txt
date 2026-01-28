@@ -34,3 +34,5 @@ motor
 
 # Frontend (Temporary)
 streamlit
+
+rank-bm25

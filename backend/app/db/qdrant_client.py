@@ -1,6 +1,9 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchAny
-from typing import List, Optional
+from qdrant_client.models import (
+    Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchAny,
+    SparseVector, SparseVectorParams, SparseIndexParams
+)
+from typing import List, Optional, Dict, Any
 import uuid
 from app.config import get_settings
 from app.models.chunk import Chunk, SearchResult, ChunkMetadata
@@ -17,30 +20,60 @@ class QdrantService:
         self.collection_name = settings.qdrant_collection_name
     
     def create_collection(self):
-        """Create collection if it doesn't exist"""
+        """Create hybrid collection with dense + sparse vectors"""
         collections = self.client.get_collections().collections
         exists = any(c.name == self.collection_name for c in collections)
         
         if not exists:
-            self.client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config=VectorParams(
+            # 🆕 Hybrid configuration: dense + sparse vectors
+            vectors_config = {
+                "dense": VectorParams(
                     size=settings.embedding_dim,
                     distance=Distance.COSINE
+                ),
+            }
+            
+            # 🆕 Sparse vector config for BM42
+            sparse_vectors_config = {
+                "sparse": SparseVectorParams(
+                    index=SparseIndexParams(
+                        on_disk=False,  # Keep in memory for speed
+                    )
                 )
+            }
+            
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=vectors_config,
+                sparse_vectors_config=sparse_vectors_config
             )
-            print(f"✅ Created collection: {self.collection_name}")
+            print(f"✅ Created HYBRID collection: {self.collection_name}")
+            print(f"   - Dense vectors: {settings.embedding_dim}-dim (BGE)")
+            print(f"   - Sparse vectors: BM42")
         else:
             print(f"✅ Collection exists: {self.collection_name}")
     
     def insert_chunks(self, chunks: List[Chunk]):
-        """Insert chunks into Qdrant"""
+        """Insert chunks with BOTH dense and sparse embeddings"""
         points = []
         
         for chunk in chunks:
+            # Validate embeddings exist
+            if chunk.embedding is None:
+                raise ValueError(f"Chunk {chunk.chunk_id} missing dense embedding")
+            
+            # 🆕 Check for sparse embedding
+            sparse_embedding = getattr(chunk, 'sparse_embedding', None)
+            if sparse_embedding is None and settings.enable_hybrid_search:
+                raise ValueError(f"Chunk {chunk.chunk_id} missing sparse embedding")
+            
+            # 🆕 Build hybrid point
             point = PointStruct(
                 id=str(uuid.uuid4()),
-                vector=chunk.embedding,
+                vector={
+                    "dense": chunk.embedding,  # Dense vector (BGE)
+                    "sparse": sparse_embedding if settings.enable_hybrid_search else None
+                },
                 payload={
                     "chunk_id": chunk.chunk_id,
                     "text": chunk.text,
@@ -57,42 +90,46 @@ class QdrantService:
             collection_name=self.collection_name,
             points=points
         )
-        print(f"✅ Inserted {len(points)} chunks into Qdrant")
+        print(f"✅ Inserted {len(points)} chunks into Qdrant (hybrid mode)")
     
     def search(
         self,
         query_vector: List[float],
         limit: int = 5
     ) -> List[SearchResult]:
-        """Search for similar chunks (unfiltered - for backward compatibility)"""
-        return self.search_with_filter(query_vector, limit=limit, allowed_sections=None)
+        """Backward-compatible search (dense-only, unfiltered)"""
+        return self.search_with_filter(
+            query_vector, 
+            limit=limit, 
+            allowed_sections=None,
+            query_sparse_vector=None
+        )
     
     def search_with_filter(
         self,
         query_vector: List[float],
         limit: int = 5,
-        allowed_sections: Optional[List[str]] = None
+        allowed_sections: Optional[List[str]] = None,
+        query_sparse_vector: Optional[SparseVector] = None
     ) -> List[SearchResult]:
         """
-        Search for similar chunks WITH SECTION FILTERING.
+        🆕 HYBRID SEARCH with section filtering
         
-        This is the PRIMARY method for intent-aware retrieval.
+        Combines dense (semantic) and sparse (keyword) retrieval.
         
         Args:
-            query_vector: Embedding of the query
-            limit: Max results to return
-            allowed_sections: List of canonical section names to include.
-                              If None, searches all sections (unfiltered).
+            query_vector: Dense embedding (BGE)
+            limit: Max results
+            allowed_sections: Section filter
+            query_sparse_vector: Sparse embedding (BM42)
         
         Returns:
-            List of SearchResult with metadata
+            List of SearchResult ranked by hybrid score
         """
-        # Build filter if sections specified
+        # Build section filter
         query_filter = None
         if allowed_sections:
-            # Always exclude "Unknown" unless explicitly requested
             filtered_sections = [s for s in allowed_sections if s != "Unknown"]
-            
             if filtered_sections:
                 query_filter = Filter(
                     must=[
@@ -104,19 +141,30 @@ class QdrantService:
                 )
                 print(f"  🔍 Filtering to sections: {filtered_sections}")
         
-        # Execute search with filter
-        results = self.client.query_points(
-            collection_name=self.collection_name,
-            query=query_vector,
-            query_filter=query_filter,
-            limit=limit,
-            with_payload=True
-        ).points
+        # 🆕 Hybrid search or dense-only
+        if settings.enable_hybrid_search and query_sparse_vector:
+            print(f"  🔀 Running HYBRID search (dense + sparse)")
+            results = self._hybrid_search(
+                query_vector, 
+                query_sparse_vector, 
+                limit, 
+                query_filter
+            )
+        else:
+            print(f"  📊 Running DENSE-only search")
+            results = self.client.query_points(
+                collection_name=self.collection_name,
+                query=query_vector,
+                using="dense",
+                query_filter=query_filter,
+                limit=limit,
+                with_payload=True
+            ).points
         
+        # Convert to SearchResult
         search_results = []
         for result in results:
             payload = result.payload
-            
             search_result = SearchResult(
                 text=payload["text"],
                 score=result.score,
@@ -130,10 +178,96 @@ class QdrantService:
             )
             search_results.append(search_result)
         
-        if allowed_sections:
-            print(f"  📊 Retrieved {len(search_results)} chunks from allowed sections")
-        
+        print(f"  📊 Retrieved {len(search_results)} chunks")
         return search_results
+    
+    def _hybrid_search(
+        self,
+        dense_vector: List[float],
+        sparse_vector: SparseVector,
+        limit: int,
+        query_filter: Optional[Filter]
+    ) -> List[Any]:
+        """
+        🆕 Internal: Perform hybrid search with RRF fusion
+        
+        Strategy:
+        1. Dense search → top-K results
+        2. Sparse search → top-K results
+        3. RRF fusion → merged ranking
+        """
+        # Search 1: Dense vector search
+        dense_results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=dense_vector,
+            using="dense",
+            query_filter=query_filter,
+            limit=limit * 2,  # Over-fetch for better fusion
+            with_payload=True
+        ).points
+        
+        # Search 2: Sparse vector search
+        sparse_results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=sparse_vector,
+            using="sparse",
+            query_filter=query_filter,
+            limit=limit * 2,
+            with_payload=True
+        ).points
+        
+        # 🆕 RRF Fusion
+        fused_results = self._rrf_fusion(dense_results, sparse_results, limit)
+        
+        return fused_results
+    
+    def _rrf_fusion(
+        self,
+        dense_results: List[Any],
+        sparse_results: List[Any],
+        limit: int
+    ) -> List[Any]:
+        """
+        🆕 Reciprocal Rank Fusion (RRF)
+        
+        Formula: RRF_score = Σ 1/(k + rank_i)
+        where k = 60 (standard constant)
+        """
+        k = settings.rrf_k
+        
+        # Build rank maps
+        dense_ranks = {point.id: rank for rank, point in enumerate(dense_results, 1)}
+        sparse_ranks = {point.id: rank for rank, point in enumerate(sparse_results, 1)}
+        
+        # Collect all unique IDs
+        all_ids = set(dense_ranks.keys()) | set(sparse_ranks.keys())
+        
+        # Calculate RRF scores
+        rrf_scores = {}
+        for point_id in all_ids:
+            score = 0.0
+            if point_id in dense_ranks:
+                score += settings.dense_weight / (k + dense_ranks[point_id])
+            if point_id in sparse_ranks:
+                score += settings.sparse_weight / (k + sparse_ranks[point_id])
+            rrf_scores[point_id] = score
+        
+        # Sort by RRF score
+        sorted_ids = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:limit]
+        
+        # Build result list with fused scores
+        fused_results = []
+        point_map = {p.id: p for p in dense_results + sparse_results}
+        
+        for point_id, rrf_score in sorted_ids:
+            if point_id in point_map:
+                point = point_map[point_id]
+                point.score = rrf_score  # Override with RRF score
+                fused_results.append(point)
+        
+        print(f"  🔀 RRF fusion: {len(dense_results)} dense + {len(sparse_results)} sparse → {len(fused_results)} fused")
+        
+        return fused_results
     
     def count(self) -> int:
         """Get total number of chunks"""

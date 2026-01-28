@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Any
 
 
 class ChunkMetadata(BaseModel):
@@ -15,6 +15,7 @@ class Chunk(BaseModel):
     text: str
     metadata: ChunkMetadata
     embedding: Optional[List[float]] = None
+    sparse_embedding: Optional[Any] = None  # BM42 SparseVector
 
 
 class SearchResult(BaseModel):

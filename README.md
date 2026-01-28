@@ -9,9 +9,12 @@ This system ingests PDF research papers, chunks them with section awareness, gen
 ```mermaid
 flowchart LR
     A[PDFs<br/>corpus/] -->|Section-Aware<br/>Parser| B(Section-Based<br/>Chunking)
-    B -->|Canonical<br/>Labels| C{Vector Embeddings<br/>768 dimensions}
-    C -->|HuggingFace<br/>BGE-base-en-v1.5| D[Qdrant<br/>Vector DB]
-    D -->|Intent-Filtered<br/>Search| E[Multi-Agent<br/>Workflow]
+    B -->|Canonical<br/>Labels| C{Hybrid Embeddings}
+    C -->|Dense: BGE| D1[Dense Vectors<br/>768-dim]
+    C -->|Sparse: BM42| D2[Sparse Vectors<br/>fastembed]
+    D1 --> D[Qdrant<br/>Vector DB]
+    D2 --> D
+    D -->|RRF Fusion<br/>Hybrid Search| E[Multi-Agent<br/>Workflow]
     E -->|HITL Gate| F[Intelligent Response]
 ```
 
@@ -56,9 +59,18 @@ flowchart LR
 | **Auto-Retry** | Schema validation retry (max 1) | ✅ Done |
 | **HITL Escalation** | Guardrails → HITL pipeline | ✅ Done |
 
-### Week 5: Current State ✅
-**Fully Operational Production-Grade RAG System**
-- � All core features implemented
+### Week 5: BM42 Hybrid Search ✅
+| Component | Technology | Status |
+|-----------|------------|--------|
+| **Sparse Embeddings** | BM42 via `fastembed` | ✅ Done |
+| **Hybrid Collection** | Qdrant dense + sparse | ✅ Done |
+| **RRF Fusion** | Reciprocal Rank Fusion (k=60) | ✅ Done |
+| **Weight Config** | Dense: 0.5, Sparse: 0.5 | ✅ Done |
+
+### Week 6: Current State ✅
+**Fully Operational Production-Grade Hybrid RAG System**
+- ✅ All core features implemented
+- 🔀 **BM42 Hybrid Search active** (dense + sparse)
 - 🛡️ Guardrails AI validation active
 - 📊 Multi-agent workflow operational
 - 🔍 Section-aware retrieval working
@@ -134,8 +146,10 @@ Human review is required if ANY of:
 |-------|------------|---------|
 | **Framework** | LlamaIndex | RAG orchestration |
 | **LLM** | Groq (openai/gpt-oss-120b) | Response generation |
-| **Embeddings** | BAAI/bge-base-en-v1.5 | Text → 768-dim vectors |
-| **Vector DB** | Qdrant | Similarity search with filters |
+| **Dense Embeddings** | BAAI/bge-base-en-v1.5 | Semantic understanding (768-dim) |
+| **Sparse Embeddings** | BM42 via `fastembed` | Keyword matching |
+| **Hybrid Search** | RRF Fusion | Dense + Sparse combination |
+| **Vector DB** | Qdrant | Hybrid vectors with filters |
 | **PDF Reader** | LlamaIndex + PyMuPDF | Document ingestion |
 | **API** | FastAPI | REST endpoints |
 | **Frontend** | Streamlit (temporary) | Demo UI |
@@ -281,9 +295,18 @@ Visit:
 Edit `backend/app/config.py`:
 
 ```python
-# Embedding Model
+# Dense Embedding Model
 embedding_model: str = "BAAI/bge-base-en-v1.5"
 embedding_dim: int = 768
+
+# BM42 Sparse Embeddings (Hybrid Search)
+sparse_embedding_model: str = "Qdrant/bm42-all-minilm-l6-v2-attentions"
+enable_hybrid_search: bool = True
+
+# RRF Fusion Parameters
+rrf_k: int = 60  # Reciprocal Rank Fusion constant
+dense_weight: float = 0.5
+sparse_weight: float = 0.5
 
 # Chunking
 chunk_size: int = 1000
@@ -292,7 +315,7 @@ chunk_overlap: int = 200
 # Qdrant
 qdrant_host: str = "localhost"
 qdrant_port: int = 6333
-qdrant_collection_name: str = "research_papers"
+qdrant_collection_name: str = "research_papers_hybrid"
 
 # LLM
 llm_model: str = "openai/gpt-oss-120b"
@@ -333,8 +356,9 @@ llm_model: str = "openai/gpt-oss-120b"
 - [x] **Week 2**: RAG Query Engine with LlamaIndex + Groq LLM
 - [x] **Week 3**: Multi-Agent Workflow + HITL + Section Filtering
 - [x] **Week 4**: Guardrails AI + Schema Validation
-- [x] **Week 5**: Production-Grade RAG System (Current)
-- [ ] **Week 6**: Cloud Deployment + Monitoring
+- [x] **Week 5**: BM42 Hybrid Search (Dense + Sparse + RRF Fusion)
+- [x] **Week 6**: Production-Grade Hybrid RAG System (Current)
+- [ ] **Week 7**: Cloud Deployment + Monitoring
 
 ## 📝 License
 

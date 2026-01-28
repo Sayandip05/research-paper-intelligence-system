@@ -1,25 +1,26 @@
 """
-Agent 2: Evidence Retrieval Agent
+🆕 Agent 2: Evidence Retrieval Agent with HYBRID SEARCH
 
-The Grounding Layer
+Combines dense (semantic) + sparse (keyword) retrieval
 
 Consumes: retrieval_event
 Emits: analysis_event OR human_review_event
-
-ZERO reasoning - only retrieval
 """
 
 from app.models.events import (
     RetrievalEvent, AnalysisEvent, HumanReviewEvent, EvidenceChunk
 )
-from app.services.embeddings import get_embedding_service
+from app.services.embeddings import get_embedding_service, get_sparse_embedding_service
 from app.db.qdrant_client import QdrantService
+from app.config import get_settings
 from typing import Union
+
+settings = get_settings()
 
 
 class EvidenceRetrievalAgent:
     """
-    Retrieves citable evidence from vector DB
+    🆕 Retrieves evidence using HYBRID search (dense + sparse)
     
     Does NOT:
     - Summarize
@@ -30,12 +31,19 @@ class EvidenceRetrievalAgent:
     
     def __init__(self):
         self.qdrant = QdrantService()
-        self.embeddings = get_embedding_service()
-        print("🔍 Evidence Retrieval Agent initialized")
+        self.dense_embeddings = get_embedding_service()
+        
+        # 🆕 Initialize sparse embeddings if hybrid enabled
+        self.sparse_embeddings = None
+        if settings.enable_hybrid_search:
+            self.sparse_embeddings = get_sparse_embedding_service()
+            print("🔍 Evidence Retrieval Agent initialized (HYBRID mode)")
+        else:
+            print("🔍 Evidence Retrieval Agent initialized (DENSE-only mode)")
     
     def process(self, event: RetrievalEvent) -> Union[AnalysisEvent, HumanReviewEvent]:
         """
-        Retrieve evidence and decide if sufficient
+        🆕 Retrieve evidence using hybrid search
         
         Returns:
             AnalysisEvent if evidence sufficient
@@ -47,13 +55,22 @@ class EvidenceRetrievalAgent:
         print(f"   Intent: {event.intent_type.value}")
         print(f"   Top-K: {event.similarity_top_k}")
         
-        # Generate query embedding
-        query_embedding = self.embeddings.generate_embedding(event.original_question)
+        # Generate DENSE query embedding
+        dense_query = self.dense_embeddings.generate_embedding(event.original_question)
         
-        # Search Qdrant
-        results = self.qdrant.search(
-            query_vector=query_embedding,
-            limit=event.similarity_top_k
+        # 🆕 Generate SPARSE query embedding
+        sparse_query = None
+        if settings.enable_hybrid_search and self.sparse_embeddings:
+            sparse_query = self.sparse_embeddings.generate_sparse_embedding(
+                event.original_question
+            )
+        
+        # 🆕 Search Qdrant with HYBRID (or dense-only)
+        results = self.qdrant.search_with_filter(
+            query_vector=dense_query,
+            limit=event.similarity_top_k,
+            allowed_sections=event.target_sections if event.target_sections else None,
+            query_sparse_vector=sparse_query  # 🆕 Pass sparse vector
         )
         
         # Convert to EvidenceChunk
