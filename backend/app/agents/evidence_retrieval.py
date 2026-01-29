@@ -26,7 +26,6 @@ class EvidenceRetrievalAgent:
     - Summarize
     - Interpret
     - Hallucinate
-    - Access memory
     """
     
     def __init__(self):

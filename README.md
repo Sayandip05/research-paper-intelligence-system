@@ -362,6 +362,204 @@ llm_model: str = "openai/gpt-oss-120b"
 - [x] **Week 6**: Production-Grade Hybrid RAG System (Current)
 - [ ] **Week 7**: Cloud Deployment + Monitoring
 
+---
+
+## 🧪 How to Evaluate This Project
+
+### Step 1: Environment Setup
+```bash
+# 1. Clone the repository
+git clone https://github.com/Sayandip05/research-paper-intelligence-system.git
+cd research-paper-intelligence-system
+
+# 2. Create virtual environment
+python -m venv venv_clean
+.\venv_clean\Scripts\activate  # Windows
+# source venv_clean/bin/activate  # Linux/Mac
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Create .env file with your Groq API key
+echo "GROQ_API_KEY=your_groq_api_key_here" > .env
+```
+
+### Step 2: Start Infrastructure
+```bash
+# Start Qdrant vector database
+docker-compose up -d
+
+# Verify Qdrant is running
+curl http://localhost:6333/collections
+```
+
+### Step 3: Build Corpus (Index PDFs)
+```bash
+# Place your research paper PDFs in corpus/ folder
+# Then run the indexing pipeline
+python build_corpus.py
+```
+
+**Expected Output:**
+```
+📚 Found 2 PDF files
+🔧 Initializing services...
+✅ Sparse embeddings loaded! (BM42)
+📄 Processing 1/2: lora.pdf
+   ✓ Created 45 chunks
+   ✓ Generated 45 dense embeddings
+   ✓ Generated 45 sparse embeddings
+✅ HYBRID CORPUS BUILD COMPLETE!
+```
+
+### Step 4: Start the System
+```bash
+# Terminal 1: Start FastAPI backend
+cd backend
+uvicorn app.main:app --reload --port 8000
+
+# Terminal 2: Start Streamlit frontend
+streamlit run frontend/app.py --server.port 8501
+```
+
+### Step 5: Test API Endpoints
+
+#### Health Check
+```bash
+curl http://localhost:8000/health
+```
+**Expected:**
+```json
+{"status": "healthy", "agents": 3, "workflow": "LlamaIndex"}
+```
+
+#### Corpus Statistics
+```bash
+curl http://localhost:8000/api/corpus/stats
+```
+**Expected:**
+```json
+{
+  "total_chunks": 88,
+  "collection": "research_papers_hybrid",
+  "hybrid_enabled": true,
+  "dense_model": "BAAI/bge-base-en-v1.5",
+  "sparse_model": "Qdrant/bm42-all-minilm-l6-v2-attentions"
+}
+```
+
+#### Hybrid Search
+```bash
+curl -X POST http://localhost:8000/api/search/hybrid \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is LoRA rank?", "top_k": 3}'
+```
+**Expected:**
+```json
+{
+  "query": "What is LoRA rank?",
+  "mode": "hybrid",
+  "total_found": 3,
+  "paper_coverage": 1,
+  "results": [...]
+}
+```
+
+#### Intelligent Query (with LLM)
+```bash
+curl -X POST http://localhost:8000/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What are the limitations of LoRA?", "similarity_top_k": 5}'
+```
+**Expected:**
+```json
+{
+  "question": "What are the limitations of LoRA?",
+  "answer": "LoRA has several limitations...",
+  "sources": [...],
+  "num_sources": 5
+}
+```
+
+#### PDF Upload (Auto-Processing)
+```bash
+curl -X POST http://localhost:8000/api/upload \
+  -F "file=@path/to/paper.pdf"
+```
+**Expected:**
+```json
+{
+  "filename": "paper.pdf",
+  "status": "processing",
+  "message": "PDF uploaded and processing started..."
+}
+```
+
+### Step 6: Interactive CLI Testing
+```bash
+python interactive_query.py
+```
+**Test Questions:**
+1. "What is LoRA?" → Should detect `summary` intent
+2. "What are the limitations?" → Should detect `limitations` intent
+3. "How does the training work?" → Should detect `methodology` intent
+4. "Give a brief summary" → Should produce concise output
+
+### Step 7: Streamlit UI Testing
+Visit: http://localhost:8501
+
+**Test Flow:**
+1. Upload a PDF via sidebar → Should auto-process
+2. Toggle "Hybrid Search" mode
+3. Ask: "What is the main contribution?"
+4. Verify sources are displayed with sections
+
+---
+
+## 📊 API Endpoints Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | System health check |
+| `/api/corpus/stats` | GET | Corpus statistics with hybrid info |
+| `/api/search` | POST | Dense-only vector search |
+| `/api/search/hybrid` | POST | Hybrid search (Dense + BM42 + RRF) |
+| `/api/query` | POST | Full RAG query with LLM synthesis |
+| `/api/query/simple` | POST | Simplified query endpoint |
+| `/api/query/health` | GET | Query engine health |
+| `/api/query/examples` | GET | Example queries by category |
+| `/api/upload` | POST | Upload PDF with auto-processing |
+| `/api/upload/status/{filename}` | GET | Check PDF processing status |
+| `/api/upload/list` | GET | List PDFs in corpus |
+
+---
+
+## ✅ Evaluation Checklist
+
+| Feature | How to Test | Expected Result |
+|---------|-------------|-----------------|
+| **PDF Parsing** | `build_corpus.py` | Chunks created with section labels |
+| **Hybrid Embeddings** | Check corpus stats | `hybrid_enabled: true` |
+| **RRF Fusion** | Hybrid search query | `mode: hybrid` in response |
+| **Intent Classification** | Ask methodology question | Returns Methods section chunks |
+| **Section Filtering** | Query with section filter | Only specified sections returned |
+| **HITL Gate** | Low-confidence query | Returns `human_review_required` |
+| **Guardrails** | Complex query | Validated JSON with citations |
+| **Auto Upload** | Upload via API | Background processing + status |
+| **Streamlit UI** | Visit :8501 | Working Q&A interface |
+
+---
+
+## 🔍 Key Differentiators
+
+1. **Hybrid Search (BM42 + Dense)**: Combines semantic understanding with keyword matching using Reciprocal Rank Fusion
+2. **Section-Aware Retrieval**: Intent-based filtering targets specific paper sections
+3. **Production HITL**: Deterministic quality gates without ML dependencies
+4. **Guardrails AI**: Schema validation with citation grounding
+5. **Auto PDF Processing**: Upload API with background indexing
+
+---
+
 ## 📝 License
 
 MIT License
@@ -369,3 +567,4 @@ MIT License
 ---
 
 Built with ❤️ using LlamaIndex, Qdrant, Groq, and Streamlit
+

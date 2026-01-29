@@ -17,7 +17,6 @@ from app.models.events import (
 from app.agents.query_orchestrator import QueryOrchestratorAgent
 from app.agents.evidence_retrieval import EvidenceRetrievalAgent
 from app.agents.analysis_synthesis import AnalysisSynthesisAgent
-from app.services.memory import get_memory_system
 from typing import Optional
 import uuid
 
@@ -36,9 +35,6 @@ class ResearchWorkflow(Workflow):
         self.orchestrator = QueryOrchestratorAgent()
         self.retriever = EvidenceRetrievalAgent()
         self.analyzer = AnalysisSynthesisAgent()
-        
-        # Initialize memory
-        self.memory = get_memory_system()
         
         print("\n" + "="*70)
         print("  🔬 LLAMAINDEX WORKFLOW INITIALIZED")
@@ -60,9 +56,7 @@ class ResearchWorkflow(Workflow):
         print("STEP 1: QUERY ORCHESTRATOR (LlamaIndex @step)")
         print("━"*70)
         
-        # Get session memory
         session_id = ev.get("session_id") or str(uuid.uuid4())
-        session_memory = self.memory.read_session(session_id)
         
         # Create internal start event
         from app.models.events import StartEvent as InternalStart
@@ -73,7 +67,7 @@ class ResearchWorkflow(Workflow):
         )
         
         # Process with orchestrator agent
-        retrieval_event = self.orchestrator.process(start, session_memory)
+        retrieval_event = self.orchestrator.process(start)
         
         return retrieval_event
     

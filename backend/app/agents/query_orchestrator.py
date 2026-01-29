@@ -22,7 +22,6 @@ class QueryOrchestratorAgent:
     Does NOT:
     - Retrieve documents
     - Answer questions
-    - Access memory (only reads at init)
     - Make citations
     """
     
@@ -30,13 +29,12 @@ class QueryOrchestratorAgent:
         self.llm = get_llm()
         print("🧠 Query Orchestrator Agent initialized")
     
-    def process(self, event: StartEvent, session_memory: Optional[dict] = None) -> RetrievalEvent:
+    def process(self, event: StartEvent) -> RetrievalEvent:
         """
         Classify intent and emit retrieval instructions
         
         Args:
             event: StartEvent with user question
-            session_memory: Optional session context (read-only)
         
         Returns:
             RetrievalEvent with retrieval strategy

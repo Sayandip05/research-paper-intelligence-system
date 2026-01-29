@@ -29,8 +29,6 @@ requests
 pytest
 
 guardrails-ai
-pymongo
-motor
 
 # Frontend (Temporary)
 streamlit

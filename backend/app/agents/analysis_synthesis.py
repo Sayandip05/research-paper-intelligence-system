@@ -26,7 +26,6 @@ class AnalysisSynthesisAgent:
     - Retrieve new documents
     - Use external knowledge
     - Make uncited claims
-    - Write to memory
     """
     
     def __init__(self):
