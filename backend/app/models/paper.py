@@ -7,6 +7,8 @@ class PaperMetadata(BaseModel):
     authors: List[str] = []
     year: Optional[int] = None
     num_pages: int = 0
+    # 🆕 Track extracted images
+    num_images: int = 0
 
 
 class Section(BaseModel):
@@ -23,3 +25,4 @@ class ParsedPaper(BaseModel):
     metadata: PaperMetadata
     sections: List[Section] = []
     raw_text: str
+    # 🆕 No image storage - images processed on-the-fly
