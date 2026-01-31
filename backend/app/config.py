@@ -7,20 +7,34 @@ class Settings(BaseSettings):
     
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
-    qdrant_collection_name: str = "research_papers_hybrid"  # 🆕 New collection for hybrid
+    qdrant_collection_name: str = "research_papers_hybrid"  # Text collection
+    qdrant_image_collection_name: str = "research_papers_images"  # 🆕 Image collection
     
-    # Dense Embeddings
+    # MongoDB
+    mongodb_url: str = "mongodb://localhost:27017"
+    mongodb_db_name: str = "research_papers"
+    
+    # Dense Embeddings (Text)
     embedding_model: str = "BAAI/bge-base-en-v1.5"
     embedding_dim: int = 768
     
-    # 🆕 Sparse Embeddings (BM42)
+    # Sparse Embeddings (BM42)
     sparse_embedding_model: str = "Qdrant/bm42-all-minilm-l6-v2-attentions"
-    enable_hybrid_search: bool = True  # Toggle hybrid on/off
+    enable_hybrid_search: bool = True
     
-    # 🆕 Hybrid Search Parameters
-    rrf_k: int = 60  # Reciprocal Rank Fusion constant (standard: 60)
-    dense_weight: float = 0.5  # Weight for dense retrieval (0-1)
-    sparse_weight: float = 0.5  # Weight for sparse retrieval (0-1)
+    # Hybrid Search Parameters
+    rrf_k: int = 60
+    dense_weight: float = 0.5
+    sparse_weight: float = 0.5
+    
+    # 🆕 CLIP Embeddings (Multimodal)
+    clip_model_name: str = "ViT-B/32"  # 512-dim
+    clip_embedding_dim: int = 512
+    enable_multimodal: bool = True  # Toggle image extraction
+    
+    # 🆕 Image Extraction Settings
+    min_image_width: int = 100  # Filter tiny images
+    min_image_height: int = 100
     
     llm_model: str = "openai/gpt-oss-120b"
     llm_temperature: float = 0.1
@@ -29,7 +43,7 @@ class Settings(BaseSettings):
     chunk_overlap: int = 200
     similarity_top_k: int = 5
     
-    # Workflow Settings
+    # Workflow
     enable_guardrails: bool = True
     confidence_threshold: float = 0.5
     
