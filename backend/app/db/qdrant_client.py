@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 import uuid
 from app.config import get_settings
 from app.models.chunk import Chunk, SearchResult, ChunkMetadata
-
+from app.models.image import ImageMetadata, ImageSearchResult
 settings = get_settings()
 
 

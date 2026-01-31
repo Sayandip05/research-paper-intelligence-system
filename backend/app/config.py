@@ -10,10 +10,6 @@ class Settings(BaseSettings):
     qdrant_collection_name: str = "research_papers_hybrid"  # Text collection
     qdrant_image_collection_name: str = "research_papers_images"  # 🆕 Image collection
     
-    # MongoDB
-    mongodb_url: str = "mongodb://localhost:27017"
-    mongodb_db_name: str = "research_papers"
-    
     # Dense Embeddings (Text)
     embedding_model: str = "BAAI/bge-base-en-v1.5"
     embedding_dim: int = 768
