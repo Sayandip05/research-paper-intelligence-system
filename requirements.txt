@@ -20,6 +20,18 @@ sentence-transformers
 # Vector Database
 qdrant-client
 
+# 🆕 BM42 Sparse Embeddings
+fastembed
+# fastembed-gpu  # Uncomment if you have CUDA GPU
+
+# 🆕 CLIP Multimodal Embeddings
+torch
+torchvision
+Pillow
+ftfy
+regex
+git+https://github.com/openai/CLIP.git
+
 # Utilities
 python-dotenv
 pydantic-settings
@@ -29,9 +41,8 @@ requests
 pytest
 
 guardrails-ai
+pymongo
+motor
 
 # Frontend (Temporary)
 streamlit
-
-# Sparse Embeddings (BM42 Hybrid Search)
-fastembed
