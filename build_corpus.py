@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent / "backend"))
 from app.services.pdf_parser import SectionAwarePDFParser
 from app.services.chunking import Chunker
 from app.services.embeddings import get_embedding_service, get_sparse_embedding_service
-from app.services.clip_embeddings import get_clip_embedding_service
+from app.services.clip_embedding import get_clip_embedding_service
 from app.services.image_extraction import get_image_extractor
 from app.db.qdrant_client import QdrantService
 from app.config import get_settings
