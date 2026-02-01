@@ -17,10 +17,11 @@ class IntelligentQueryEngine:
             port=settings.qdrant_port
         )
         
-        # 2. Setup Vector Store
+        # 2. Setup Vector Store with named vector for hybrid collection
         self.vector_store = QdrantVectorStore(
             client=self.client,
-            collection_name=settings.qdrant_collection_name
+            collection_name=settings.qdrant_collection_name,
+            vector_name="dense"  # Match the named vector in hybrid collection
         )
         
         # 3. Setup LLM and Embedding Model

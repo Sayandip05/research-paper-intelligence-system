@@ -26,8 +26,9 @@ class QdrantService:
         
         if not exists:
             # 🆕 Hybrid configuration: dense + sparse vectors
+            # NOTE: LlamaIndex QdrantVectorStore prefixes vector names with "text-"
             vectors_config = {
-                "dense": VectorParams(
+                "text-dense": VectorParams(
                     size=settings.embedding_dim,
                     distance=Distance.COSINE
                 ),
@@ -71,7 +72,7 @@ class QdrantService:
             point = PointStruct(
                 id=str(uuid.uuid4()),
                 vector={
-                    "dense": chunk.embedding,  # Dense vector (BGE)
+                    "text-dense": chunk.embedding,  # Dense vector (BGE) - matches LlamaIndex naming
                     "sparse": sparse_embedding if settings.enable_hybrid_search else None
                 },
                 payload={
@@ -155,7 +156,7 @@ class QdrantService:
             results = self.client.query_points(
                 collection_name=self.collection_name,
                 query=query_vector,
-                using="dense",
+                using="text-dense",
                 query_filter=query_filter,
                 limit=limit,
                 with_payload=True
@@ -200,7 +201,7 @@ class QdrantService:
         dense_results = self.client.query_points(
             collection_name=self.collection_name,
             query=dense_vector,
-            using="dense",
+            using="text-dense",
             query_filter=query_filter,
             limit=limit * 2,  # Over-fetch for better fusion
             with_payload=True
@@ -273,3 +274,213 @@ class QdrantService:
         """Get total number of chunks"""
         info = self.client.get_collection(self.collection_name)
         return info.points_count
+
+    # ==================== IMAGE METHODS ====================
+
+    def create_image_collection(self):
+        """🆕 Create collection for image embeddings"""
+        collections = self.client.get_collections().collections
+        exists = any(c.name == settings.qdrant_image_collection_name for c in collections)
+        
+        if not exists:
+            self.client.create_collection(
+                collection_name=settings.qdrant_image_collection_name,
+                vectors_config=VectorParams(
+                    size=settings.clip_embedding_dim,  # 512-dim for CLIP
+                    distance=Distance.COSINE
+                )
+            )
+            print(f"✅ Created IMAGE collection: {settings.qdrant_image_collection_name}")
+            print(f"   - CLIP vectors: {settings.clip_embedding_dim}-dim (ViT-B/32)")
+        else:
+            print(f"✅ Image collection exists: {settings.qdrant_image_collection_name}")
+
+    def insert_images(
+        self,
+        images_data: List[tuple]  # List of (ImageMetadata, embedding)
+    ):
+        """🆕 Insert image embeddings into Qdrant"""
+        points = []
+        
+        for metadata, embedding in images_data:
+            point = PointStruct(
+                id=str(uuid.uuid4()),
+                vector=embedding,
+                payload={
+                    "image_id": metadata.image_id,
+                    "paper_id": metadata.paper_id,
+                    "paper_title": metadata.paper_title,
+                    "page_number": metadata.page_number,
+                    "caption": metadata.caption,
+                    "image_type": metadata.image_type
+                }
+            )
+            points.append(point)
+        
+        if points:
+            self.client.upsert(
+                collection_name=settings.qdrant_image_collection_name,
+                points=points
+            )
+            print(f"✅ Inserted {len(points)} image embeddings into Qdrant")
+
+    def search_images(
+        self,
+        query_vector: List[float],
+        limit: int = 3,
+        min_score: float = 0.3
+    ) -> List[ImageSearchResult]:
+        """
+        🆕 Search for images using text query embedding
+        
+        Args:
+            query_vector: CLIP text embedding
+            limit: Max results
+            min_score: Minimum similarity threshold
+        
+        Returns:
+            List of ImageSearchResult
+        """
+        results = self.client.query_points(
+            collection_name=settings.qdrant_image_collection_name,
+            query=query_vector,
+            limit=limit,
+            with_payload=True,
+            score_threshold=min_score
+        ).points
+        
+        search_results = []
+        for result in results:
+            payload = result.payload
+            
+            search_result = ImageSearchResult(
+                image_id=payload["image_id"],
+                paper_title=payload["paper_title"],
+                page_number=payload["page_number"],
+                caption=payload.get("caption"),
+                score=result.score,
+                metadata=ImageMetadata(
+                    image_id=payload["image_id"],
+                    paper_id=payload["paper_id"],
+                    paper_title=payload["paper_title"],
+                    page_number=payload["page_number"],
+                    caption=payload.get("caption"),
+                    image_type=payload.get("image_type", "figure")
+                )
+            )
+            search_results.append(search_result)
+        
+        print(f"  🖼️  Retrieved {len(search_results)} images")
+        return search_results
+
+    def count_images(self) -> int:
+        """🆕 Get total number of images"""
+        try:
+            info = self.client.get_collection(settings.qdrant_image_collection_name)
+            return info.points_count
+        except:
+            return 0
+
+    def create_image_collection(self):
+        """🆕 Create collection for image embeddings"""
+        collections = self.client.get_collections().collections
+        exists = any(c.name == settings.qdrant_image_collection_name for c in collections)
+        
+        if not exists:
+            self.client.create_collection(
+                collection_name=settings.qdrant_image_collection_name,
+                vectors_config=VectorParams(
+                    size=settings.clip_embedding_dim,  # 512-dim for CLIP
+                    distance=Distance.COSINE
+                )
+            )
+            print(f"✅ Created IMAGE collection: {settings.qdrant_image_collection_name}")
+            print(f"   - CLIP vectors: {settings.clip_embedding_dim}-dim (ViT-B/32)")
+        else:
+            print(f"✅ Image collection exists: {settings.qdrant_image_collection_name}")
+
+    def insert_images(
+        self,
+        images_data: List[tuple]  # List of (ImageMetadata, embedding)
+    ):
+        """🆕 Insert image embeddings into Qdrant"""
+        points = []
+        
+        for metadata, embedding in images_data:
+            point = PointStruct(
+                id=str(uuid.uuid4()),
+                vector=embedding,
+                payload={
+                    "image_id": metadata.image_id,
+                    "paper_id": metadata.paper_id,
+                    "paper_title": metadata.paper_title,
+                    "page_number": metadata.page_number,
+                    "caption": metadata.caption,
+                    "image_type": metadata.image_type
+                }
+            )
+            points.append(point)
+        
+        if points:
+            self.client.upsert(
+                collection_name=settings.qdrant_image_collection_name,
+                points=points
+            )
+            print(f"✅ Inserted {len(points)} image embeddings into Qdrant")
+
+    def search_images(
+        self,
+        query_vector: List[float],
+        limit: int = 3,
+        min_score: float = 0.3
+    ) -> List[ImageSearchResult]:
+        """
+        🆕 Search for images using text query embedding
+        
+        Args:
+            query_vector: CLIP text embedding
+            limit: Max results
+            min_score: Minimum similarity threshold
+        
+        Returns:
+            List of ImageSearchResult
+        """
+        results = self.client.query_points(
+            collection_name=settings.qdrant_image_collection_name,
+            query=query_vector,
+            limit=limit,
+            with_payload=True,
+            score_threshold=min_score
+        ).points
+        
+        search_results = []
+        for result in results:
+            payload = result.payload
+            
+            search_result = ImageSearchResult(
+                image_id=payload["image_id"],
+                paper_title=payload["paper_title"],
+                page_number=payload["page_number"],
+                caption=payload.get("caption"),
+                score=result.score,
+                metadata=ImageMetadata(
+                    image_id=payload["image_id"],
+                    paper_id=payload["paper_id"],
+                    paper_title=payload["paper_title"],
+                    page_number=payload["page_number"],
+                    caption=payload.get("caption"),
+                    image_type=payload.get("image_type", "figure")
+                )
+            )
+            search_results.append(search_result)
+        
+        print(f"  🖼️  Retrieved {len(search_results)} images")
+        return search_results
+
+    def count_images(self) -> int:
+        """🆕 Get total number of images"""
+        try:
+            info = self.client.get_collection(settings.qdrant_image_collection_name)
+            return info.points_count
+        except:
+            return 0

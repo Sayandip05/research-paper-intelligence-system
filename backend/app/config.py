@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     corpus_dir: str = "./corpus"
     
     class Config:
-        env_file = ".env"
+        env_file = "../.env"  # .env is at project root, not backend/
 
 
 @lru_cache()
