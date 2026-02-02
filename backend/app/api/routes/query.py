@@ -5,7 +5,7 @@ This is the main endpoint users will use!
 """
 
 from fastapi import APIRouter, HTTPException
-from app.models.query import QueryRequest, QueryResponse, SourceInfo
+from app.models.query import QueryRequest, QueryResponse, SourceInfo, ImageInfo
 from app.services.query_engine import get_query_engine
 
 router = APIRouter()
@@ -46,6 +46,7 @@ async def intelligent_query(request: QueryRequest):
             question=result["question"],
             answer=result["answer"],
             sources=[SourceInfo(**s) for s in result["sources"]],
+            images=[ImageInfo(**img) for img in result.get("images", [])],  # 🆕
             num_sources=result["num_sources"],
             response_mode=result["response_mode"]
         )

@@ -13,7 +13,7 @@ from app.models.events import (
     EvidenceChunk, ImageEvidence
 )
 from app.services.embeddings import get_embedding_service, get_sparse_embedding_service
-from app.services.clip_embeddings import get_clip_embedding_service
+from app.services.clip_embedding import get_clip_embedding_service
 from app.db.qdrant_client import QdrantService
 from app.config import get_settings
 from typing import Union

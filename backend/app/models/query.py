@@ -15,9 +15,19 @@ class SourceInfo(BaseModel):
     score: float
     text: Optional[str] = None
 
+# 🆕 Image info for unified search
+class ImageInfo(BaseModel):
+    image_id: str
+    paper_title: str
+    page_number: int
+    caption: Optional[str] = None
+    image_type: str = "figure"
+    score: float
+
 class QueryResponse(BaseModel):
     question: str
     answer: str
     sources: List[SourceInfo]
+    images: List[ImageInfo] = Field(default_factory=list)  # 🆕 Related images
     num_sources: int
     response_mode: str
