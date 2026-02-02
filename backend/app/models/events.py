@@ -1,12 +1,7 @@
 """
 Event Models for Workflow System
 
-Only 5 events allowed:
-- start_event
-- retrieval_event
-- analysis_event
-- human_review_event
-- stop_event
+🆕 Now supports MULTIMODAL retrieval (text + images)
 """
 
 from pydantic import BaseModel, Field
@@ -40,7 +35,7 @@ class RetrievalEvent(Event):
 
 
 class EvidenceChunk(BaseModel):
-    """Retrieved evidence with metadata"""
+    """Retrieved text evidence with metadata"""
     text: str
     paper_title: str
     section_title: str
@@ -49,10 +44,26 @@ class EvidenceChunk(BaseModel):
     score: float
 
 
+# 🆕 NEW: Image evidence model
+class ImageEvidence(BaseModel):
+    """Retrieved image evidence"""
+    image_id: str
+    paper_title: str
+    page_number: int
+    caption: Optional[str] = None
+    image_type: str = "figure"
+    score: float
+
+
 class AnalysisEvent(Event):
-    """Event to trigger analysis and synthesis"""
+    """
+    Event to trigger analysis and synthesis
+    
+    🆕 Now includes images alongside text chunks
+    """
     intent_type: IntentType
     chunks: List[EvidenceChunk]
+    images: List[ImageEvidence] = Field(default_factory=list)  # 🆕 Image results
     coverage_stats: Dict[str, Any]
     confidence_threshold: float
     original_question: str
@@ -62,15 +73,21 @@ class HumanReviewEvent(Event):
     """Event to request human intervention"""
     reason: str
     chunks: Optional[List[EvidenceChunk]] = None
+    images: Optional[List[ImageEvidence]] = None  # 🆕 Include images in review
     missing_papers: List[str] = Field(default_factory=list)
     conflicting_claims: Optional[str] = None
     suggested_actions: List[str] = Field(default_factory=list)
 
 
 class StopEvent(Event):
-    """Final event with answer or refusal"""
+    """
+    Final event with answer or refusal
+    
+    🆕 Now includes related images
+    """
     answer: Optional[str] = None
     citations: List[Dict[str, Any]] = Field(default_factory=list)
+    images: List[Dict[str, Any]] = Field(default_factory=list)  # 🆕 Related images
     confidence_score: float = 0.0
     refused: bool = False
     refusal_reason: Optional[str] = None
