@@ -69,6 +69,17 @@ def process_pdf(filepath: Path, filename: str):
         # Chunk paper
         chunks = chunker.chunk_paper(paper)
         
+        # Check if any chunks were created
+        if not chunks:
+            processing_status[filename] = {
+                "status": "failed",
+                "chunks_created": 0,
+                "error": "PDF parsing produced 0 chunks. The PDF may be image-only or corrupted."
+            }
+            return
+        
+        print(f"   📦 Generated {len(chunks)} chunks from {filename}")
+        
         # Generate dense embeddings
         texts = [chunk.text for chunk in chunks]
         dense_vecs = dense_embeddings.generate_embeddings(texts)
@@ -91,6 +102,8 @@ def process_pdf(filepath: Path, filename: str):
         }
         
     except Exception as e:
+        import traceback
+        print(f"❌ Error processing {filename}: {traceback.format_exc()}")
         processing_status[filename] = {
             "status": "failed",
             "chunks_created": 0,

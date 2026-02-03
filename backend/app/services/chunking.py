@@ -52,6 +52,56 @@ class LlamaIndexChunker:
         # Use section-aware chunking by default for proper metadata
         return self.chunk_with_metadata(paper, section_aware=True)
     
+    def _chunk_full_text(self, paper: ParsedPaper) -> List[Chunk]:
+        """
+        Fallback: Chunk the entire paper as one document
+        Used when no sections are detected
+        """
+        # Combine all text from the paper
+        full_text = ""
+        if paper.sections:
+            full_text = "\n\n".join([s.content for s in paper.sections if s.content])
+        
+        # If still empty, try full_text attribute
+        if not full_text and hasattr(paper, 'full_text'):
+            full_text = paper.full_text
+        
+        if not full_text:
+            print("⚠️ Warning: Paper has no extractable text!")
+            return []
+        
+        # Create document for full text
+        doc = Document(
+            text=full_text,
+            metadata={
+                "paper_id": paper.paper_id,
+                "title": paper.metadata.title,
+                "section_id": "full",
+                "section_title": "Full Text"
+            }
+        )
+        
+        # Chunk it
+        nodes = self.splitter.get_nodes_from_documents([doc])
+        
+        chunks = []
+        for node in nodes:
+            chunk = Chunk(
+                chunk_id=str(uuid.uuid4()),
+                text=node.get_content(),
+                metadata=ChunkMetadata(
+                    paper_id=paper.paper_id,
+                    paper_title=paper.metadata.title,
+                    section_title="Full Text",
+                    page_start=1,
+                    page_end=paper.metadata.total_pages or 1
+                )
+            )
+            chunks.append(chunk)
+        
+        print(f"   📄 Created {len(chunks)} chunks from full text")
+        return chunks
+    
     def chunk_with_metadata(
         self,
         paper: ParsedPaper,
@@ -63,13 +113,17 @@ class LlamaIndexChunker:
         If paper has sections, chunk each section separately
         This preserves section boundaries better
         """
+        # Fallback to full-text chunking if no sections
         if not section_aware or not paper.sections:
-            # Fall back to simple chunking
-            return self.chunk_paper(paper)
+            return self._chunk_full_text(paper)
         
         all_chunks = []
         
         for section in paper.sections:
+            # Skip empty sections
+            if not section.content or not section.content.strip():
+                continue
+                
             # Create document for this section
             section_doc = Document(
                 text=section.content,
@@ -99,6 +153,12 @@ class LlamaIndexChunker:
                 )
                 all_chunks.append(chunk)
         
+        # If section-aware chunking produced nothing, fallback to full-text
+        if not all_chunks:
+            print("   ⚠️ Section chunking produced 0 chunks, falling back to full-text")
+            return self._chunk_full_text(paper)
+        
+        print(f"   ✅ Created {len(all_chunks)} chunks from {len(paper.sections)} sections")
         return all_chunks
 
 

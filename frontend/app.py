@@ -39,6 +39,51 @@ st.caption("🆕 Unified Multimodal RAG: Hybrid Text + CLIP Images")
 
 # ============== SIDEBAR ==============
 with st.sidebar:
+    # ========== PDF UPLOAD ==========
+    st.header("📤 Upload PDF")
+    uploaded_file = st.file_uploader(
+        "Add a research paper",
+        type=["pdf"],
+        help="Upload PDF to index and query"
+    )
+    
+    if uploaded_file:
+        if st.button("📥 Process PDF", type="primary"):
+            with st.spinner("Uploading..."):
+                try:
+                    files = {"file": (uploaded_file.name, uploaded_file, "application/pdf")}
+                    resp = requests.post(f"{API_BASE_URL}/api/upload", files=files, timeout=30)
+                    
+                    if resp.status_code == 200:
+                        st.success(f"✅ {uploaded_file.name} uploaded!")
+                        st.info("Processing in background...")
+                        
+                        # Poll for status
+                        with st.spinner("Processing..."):
+                            import time
+                            for _ in range(60):  # Max 60 seconds
+                                time.sleep(2)
+                                status_resp = requests.get(
+                                    f"{API_BASE_URL}/api/upload/status/{uploaded_file.name}",
+                                    timeout=5
+                                )
+                                if status_resp.status_code == 200:
+                                    status = status_resp.json()
+                                    if status.get("status") == "completed":
+                                        st.success(f"✅ Done! {status.get('chunks_created', 0)} chunks created")
+                                        st.rerun()
+                                        break
+                                    elif status.get("status") == "failed":
+                                        st.error(f"❌ Failed: {status.get('error', 'Unknown error')}")
+                                        break
+                    else:
+                        st.error(f"Upload failed: {resp.status_code}")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+    
+    st.divider()
+    
+    # ========== CORPUS STATS ==========
     st.header("📊 Corpus Stats")
     try:
         stats_resp = requests.get(f"{API_BASE_URL}/api/corpus/stats", timeout=5)
@@ -60,7 +105,7 @@ with st.sidebar:
     
     st.divider()
     
-    # System Health
+    # ========== SYSTEM HEALTH ==========
     st.header("🔧 System Status")
     try:
         health = requests.get(f"{API_BASE_URL}/health", timeout=3)
