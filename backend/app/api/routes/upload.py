@@ -17,6 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from app.services.pdf_parser import SectionAwarePDFParser
 from app.services.chunking import Chunker
 from app.services.embeddings import get_embedding_service, get_sparse_embedding_service
+from app.services.image_extraction import PDFImageExtractor
+from app.services.clip_embedding import get_clip_embedding_service
 from app.db.qdrant_client import QdrantService
 from app.config import get_settings
 
@@ -93,12 +95,58 @@ def process_pdf(filepath: Path, filename: str):
             for chunk, sparse_vec in zip(chunks, sparse_vecs):
                 chunk.sparse_embedding = sparse_vec
         
-        # Insert into Qdrant
+        # Insert text chunks into Qdrant
         qdrant_service.insert_chunks(chunks)
+        
+        # 🆕 EXTRACT AND PROCESS IMAGES
+        images_created = 0
+        if settings.enable_multimodal:
+            try:
+                print(f"   🖼️ Extracting images from {filename}...")
+                
+                # Extract images
+                image_extractor = PDFImageExtractor()
+                extracted_images = image_extractor.extract_images_from_pdf(
+                    pdf_path=str(filepath),
+                    paper_id=paper.paper_id,
+                    paper_title=paper.metadata.title
+                )
+                
+                if extracted_images:
+                    print(f"   📸 Found {len(extracted_images)} images, generating CLIP embeddings...")
+                    
+                    # Generate CLIP embeddings
+                    clip_service = get_clip_embedding_service()
+                    
+                    from app.models.image import ExtractedImage
+                    clip_images = []
+                    
+                    for pil_image, metadata in extracted_images:
+                        try:
+                            embedding = clip_service.generate_image_embedding(pil_image)
+                            clip_images.append(ExtractedImage(
+                                metadata=metadata,
+                                embedding=embedding
+                            ))
+                        except Exception as e:
+                            print(f"      ⚠️ Failed to embed image: {e}")
+                    
+                    # Store in Qdrant images collection
+                    if clip_images:
+                        qdrant_service.create_image_collection()
+                        qdrant_service.insert_images(clip_images)
+                        images_created = len(clip_images)
+                        print(f"   ✅ Stored {images_created} images with CLIP embeddings")
+                else:
+                    print(f"   ℹ️ No images found in PDF")
+                    
+            except Exception as e:
+                print(f"   ⚠️ Image extraction failed (text still saved): {e}")
         
         processing_status[filename] = {
             "status": "completed",
-            "chunks_created": len(chunks)
+            "chunks_created": len(chunks),
+            "images_created": images_created
         }
         
     except Exception as e:
