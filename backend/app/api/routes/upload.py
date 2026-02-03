@@ -118,24 +118,21 @@ def process_pdf(filepath: Path, filename: str):
                     # Generate CLIP embeddings
                     clip_service = get_clip_embedding_service()
                     
-                    from app.models.image import ExtractedImage
-                    clip_images = []
+                    # insert_images expects List[(ImageMetadata, embedding)]
+                    images_with_embeddings = []
                     
                     for pil_image, metadata in extracted_images:
                         try:
                             embedding = clip_service.generate_image_embedding(pil_image)
-                            clip_images.append(ExtractedImage(
-                                metadata=metadata,
-                                embedding=embedding
-                            ))
+                            images_with_embeddings.append((metadata, embedding))
                         except Exception as e:
                             print(f"      ⚠️ Failed to embed image: {e}")
                     
                     # Store in Qdrant images collection
-                    if clip_images:
+                    if images_with_embeddings:
                         qdrant_service.create_image_collection()
-                        qdrant_service.insert_images(clip_images)
-                        images_created = len(clip_images)
+                        qdrant_service.insert_images(images_with_embeddings)
+                        images_created = len(images_with_embeddings)
                         print(f"   ✅ Stored {images_created} images with CLIP embeddings")
                 else:
                     print(f"   ℹ️ No images found in PDF")
