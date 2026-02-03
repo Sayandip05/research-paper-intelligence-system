@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     enable_guardrails: bool = True
     confidence_threshold: float = 0.5
     
-    corpus_dir: str = "./corpus"
+    corpus_dir: str = "../corpus"
     
     class Config:
         env_file = "../.env"  # .env is at project root, not backend/

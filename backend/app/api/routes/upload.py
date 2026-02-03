@@ -141,6 +141,13 @@ async def upload_pdf(
     
     filepath = corpus_dir / file.filename
     
+    # 🆕 Check if file already exists (prevent duplicates)
+    if filepath.exists():
+        raise HTTPException(
+            status_code=409,  # Conflict
+            detail=f"PDF '{file.filename}' already exists in corpus. Delete it first to re-upload."
+        )
+    
     try:
         with open(filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
