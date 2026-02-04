@@ -127,7 +127,7 @@ question = st.text_input(
 )
 
 # Options
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 with col1:
     top_k = st.slider("Text sources", 3, 10, 5)
 with col2:
@@ -136,12 +136,6 @@ with col2:
         ["hybrid", "dense", "sparse"],
         format_func=lambda x: {"hybrid": "🔀 Hybrid (Both)", "dense": "🧠 Dense (BGE)", "sparse": "📝 BM42 (Sparse)"}[x],
         index=0
-    )
-with col3:
-    sections = st.multiselect(
-        "Filter sections",
-        ["Abstract", "Introduction", "Methods", "Results"],
-        default=[]
     )
 
 if st.button("🔍 Get Answer", type="primary", disabled=not question):
