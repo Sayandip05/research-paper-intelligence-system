@@ -144,7 +144,7 @@ class IntelligentQueryEngine:
                 with_payload=True
             ).points
         else:  # hybrid
-            from qdrant_client.models import SparseVector
+            from qdrant_client.models import SparseVector, FusionQuery, Fusion
             results = self.client.query_points(
                 collection_name=settings.qdrant_collection_name,
                 prefetch=[
@@ -155,7 +155,7 @@ class IntelligentQueryEngine:
                         limit=top_k * 2
                     )
                 ],
-                query=Query.fusion("rrf"),
+                query=FusionQuery(fusion=Fusion.RRF),
                 limit=top_k,
                 with_payload=True
             ).points

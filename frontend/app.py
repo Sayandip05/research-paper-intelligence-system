@@ -117,16 +117,60 @@ with st.sidebar:
         st.error("❌ Backend: Offline")
 
 # ============== MAIN CONTENT ==============
-st.header("💬 Ask a Question")
-st.caption("Returns text answers + related images automatically")
+st.header("💬 Research Paper Q&A")
 
-# Question input
-question = st.text_input(
-    "Your question:",
-    placeholder="e.g., What is the LoRA architecture? Show me diagrams."
-)
+# Initialize session state for results
+if 'last_result' not in st.session_state:
+    st.session_state.last_result = None
 
-# Options
+# ========== RESULTS AREA (TOP) ==========
+if st.session_state.last_result:
+    result = st.session_state.last_result
+    
+    # Answer
+    st.success("✅ Answer")
+    st.markdown(result.get("answer", "No answer"))
+    
+    # Images
+    images = result.get("images", [])
+    if images:
+        st.divider()
+        st.subheader(f"🖼️ Related Images ({len(images)})")
+        cols = st.columns(min(len(images), 3))
+        for i, img in enumerate(images):
+            with cols[i % 3]:
+                image_id = img.get('image_id', '')
+                try:
+                    img_response = requests.get(
+                        f"{API_BASE_URL}/api/image-by-id/{image_id}",
+                        timeout=10
+                    )
+                    if img_response.status_code == 200:
+                        st.image(
+                            img_response.content,
+                            caption=f"Page {img.get('page_number', 'N/A')} | {img.get('image_type', 'figure')}",
+                            use_container_width=True
+                        )
+                    else:
+                        st.info(f"🖼️ Image {i+1}\n📄 {img.get('paper_title', '')[:25]}...")
+                except:
+                    st.info(f"🖼️ Image {i+1}\n📍 Page {img.get('page_number', 'N/A')}")
+                st.caption(f"Score: {img.get('score', 0):.2f}")
+    
+    # Sources
+    sources = result.get("sources", [])
+    if sources:
+        st.divider()
+        st.subheader(f"📖 Text Sources ({len(sources)})")
+        for i, source in enumerate(sources, 1):
+            with st.expander(f"Source {i}: {source.get('paper_title', 'Unknown')}"):
+                st.caption(f"Section: {source.get('section_title', 'N/A')}")
+                st.text(source.get("text", "")[:500] + "...")
+
+# ========== INPUT AREA (BOTTOM) ==========
+st.divider()
+
+# Options row
 col1, col2 = st.columns(2)
 with col1:
     top_k = st.slider("Text sources", 3, 10, 5)
@@ -138,73 +182,34 @@ with col2:
         index=0
     )
 
-if st.button("🔍 Get Answer", type="primary", disabled=not question):
+# Question input (at bottom like ChatGPT)
+col_input, col_btn = st.columns([5, 1])
+with col_input:
+    question = st.text_input(
+        "Ask about your research papers:",
+        placeholder="What is LoRA? How does the Transformer architecture work?",
+        label_visibility="collapsed"
+    )
+with col_btn:
+    submit = st.button("🔍", type="primary", disabled=not question)
+
+if submit and question:
     with st.spinner(f"Searching with {search_mode} mode..."):
         try:
-            # Query API (returns text + images)
             response = requests.post(
                 f"{API_BASE_URL}/api/query",
                 json={
                     "question": question,
                     "similarity_top_k": top_k,
                     "response_mode": "compact",
-                    "search_mode": search_mode  # 🆕 Pass search mode
+                    "search_mode": search_mode
                 },
                 timeout=60
             )
             
             if response.status_code == 200:
-                result = response.json()
-                
-                if result.get("status") == "human_review_required":
-                    st.warning("⚠️ Human Review Required")
-                    st.info(f"**Reason:** {result.get('reason', 'Low confidence')}")
-                else:
-                    # ========== ANSWER ==========
-                    st.success("✅ Answer")
-                    st.markdown(result.get("answer", "No answer"))
-                    
-                    # ========== IMAGES (IF ANY) ==========
-                    images = result.get("images", [])
-                    if images:
-                        st.divider()
-                        st.subheader(f"🖼️ Related Images ({len(images)})")
-                        
-                        # Display images in grid
-                        cols = st.columns(min(len(images), 3))
-                        for i, img in enumerate(images):
-                            with cols[i % 3]:
-                                image_id = img.get('image_id', '')
-                                
-                                # Try to fetch and display actual image
-                                try:
-                                    img_response = requests.get(
-                                        f"{API_BASE_URL}/api/image-by-id/{image_id}",
-                                        timeout=10
-                                    )
-                                    if img_response.status_code == 200:
-                                        st.image(
-                                            img_response.content,
-                                            caption=f"Page {img.get('page_number', 'N/A')} | {img.get('image_type', 'figure')}",
-                                            use_container_width=True
-                                        )
-                                    else:
-                                        # Fallback to metadata display
-                                        st.info(f"🖼️ Image {i+1}\n📄 {img.get('paper_title', '')[:25]}...\n📍 Page {img.get('page_number', 'N/A')}")
-                                except:
-                                    st.info(f"🖼️ Image {i+1}\n📄 {img.get('paper_title', '')[:25]}...\n📍 Page {img.get('page_number', 'N/A')}")
-                                
-                                st.caption(f"Score: {img.get('score', 0):.2f}")
-                    
-                    # ========== TEXT SOURCES ==========
-                    sources = result.get("sources", [])
-                    if sources:
-                        st.divider()
-                        st.subheader(f"📖 Text Sources ({len(sources)})")
-                        for i, source in enumerate(sources, 1):
-                            with st.expander(f"Source {i}: {source.get('paper_title', 'Unknown')}"):
-                                st.caption(f"Section: {source.get('section_title', 'N/A')}")
-                                st.text(source.get("text", "")[:500] + "...")
+                st.session_state.last_result = response.json()
+                st.rerun()
             else:
                 st.error(f"Query failed: {response.status_code}")
                 
@@ -213,21 +218,5 @@ if st.button("🔍 Get Answer", type="primary", disabled=not question):
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
 
-# Example queries
-st.divider()
-st.subheader("💡 Example Questions")
-examples = [
-    "What is LoRA? Show architecture.",
-    "How does QLoRA reduce memory?",
-    "Compare LoRA and full fine-tuning",
-    "Show me training loss curves"
-]
-cols = st.columns(2)
-for i, ex in enumerate(examples):
-    with cols[i % 2]:
-        if st.button(ex, key=f"ex_{i}"):
-            st.rerun()
-
 # Footer
-st.divider()
 st.caption("🔬 Multimodal RAG v5.1 | Hybrid Text (Dense+BM42) + CLIP Images | Built with LlamaIndex & Qdrant")
