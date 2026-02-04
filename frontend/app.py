@@ -172,18 +172,27 @@ if st.button("🔍 Get Answer", type="primary", disabled=not question):
                         cols = st.columns(min(len(images), 3))
                         for i, img in enumerate(images):
                             with cols[i % 3]:
-                                st.markdown(f"""
-                                <div class="image-card">
-                                    <strong>Image {i+1}</strong><br>
-                                    📄 {img.get('paper_title', 'Unknown')[:30]}...<br>
-                                    📍 Page {img.get('page_number', 'N/A')}<br>
-                                    📊 Score: {img.get('score', 0):.2f}<br>
-                                    🏷️ Type: {img.get('image_type', 'figure')}
-                                </div>
-                                """, unsafe_allow_html=True)
+                                image_id = img.get('image_id', '')
                                 
-                                if img.get('caption'):
-                                    st.caption(img['caption'])
+                                # Try to fetch and display actual image
+                                try:
+                                    img_response = requests.get(
+                                        f"{API_BASE_URL}/api/image-by-id/{image_id}",
+                                        timeout=10
+                                    )
+                                    if img_response.status_code == 200:
+                                        st.image(
+                                            img_response.content,
+                                            caption=f"Page {img.get('page_number', 'N/A')} | {img.get('image_type', 'figure')}",
+                                            use_container_width=True
+                                        )
+                                    else:
+                                        # Fallback to metadata display
+                                        st.info(f"🖼️ Image {i+1}\n📄 {img.get('paper_title', '')[:25]}...\n📍 Page {img.get('page_number', 'N/A')}")
+                                except:
+                                    st.info(f"🖼️ Image {i+1}\n📄 {img.get('paper_title', '')[:25]}...\n📍 Page {img.get('page_number', 'N/A')}")
+                                
+                                st.caption(f"Score: {img.get('score', 0):.2f}")
                     
                     # ========== TEXT SOURCES ==========
                     sources = result.get("sources", [])

@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.routes import search, query, upload, image_search
+from app.api.routes import search, query, upload, image_search, images
 
 app = FastAPI(
     title="Research Paper Intelligence System",
@@ -11,6 +11,7 @@ app.include_router(search.router, prefix="/api", tags=["search"])
 app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(image_search.router, prefix="/api", tags=["Image Search"])
+app.include_router(images.router, prefix="/api", tags=["Images"])  # 🆕 Serve actual images
 
 @app.get("/")
 def root():
