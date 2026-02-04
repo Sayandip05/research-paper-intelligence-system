@@ -127,18 +127,25 @@ question = st.text_input(
 )
 
 # Options
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     top_k = st.slider("Text sources", 3, 10, 5)
 with col2:
+    search_mode = st.selectbox(
+        "Search Mode",
+        ["hybrid", "dense", "sparse"],
+        format_func=lambda x: {"hybrid": "🔀 Hybrid (Both)", "dense": "🧠 Dense (BGE)", "sparse": "📝 BM42 (Sparse)"}[x],
+        index=0
+    )
+with col3:
     sections = st.multiselect(
-        "Filter sections (optional)",
-        ["Abstract", "Introduction", "Methods", "Results", "Discussion"],
+        "Filter sections",
+        ["Abstract", "Introduction", "Methods", "Results"],
         default=[]
     )
 
 if st.button("🔍 Get Answer", type="primary", disabled=not question):
-    with st.spinner("Searching text + images..."):
+    with st.spinner(f"Searching with {search_mode} mode..."):
         try:
             # Query API (returns text + images)
             response = requests.post(
@@ -146,7 +153,8 @@ if st.button("🔍 Get Answer", type="primary", disabled=not question):
                 json={
                     "question": question,
                     "similarity_top_k": top_k,
-                    "response_mode": "compact"
+                    "response_mode": "compact",
+                    "search_mode": search_mode  # 🆕 Pass search mode
                 },
                 timeout=60
             )

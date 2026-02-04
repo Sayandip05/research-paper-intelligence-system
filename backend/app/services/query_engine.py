@@ -56,13 +56,20 @@ class IntelligentQueryEngine:
         else:
             print("✅ Intelligent Query Engine initialized")
 
-    def query(self, question: str, similarity_top_k: int = 5, response_mode: str = "compact") -> Dict[str, Any]:
+    def query(self, question: str, similarity_top_k: int = 5, response_mode: str = "compact", search_mode: str = "hybrid") -> Dict[str, Any]:
         """
         Execute a query against the research papers
         
+        Args:
+            search_mode: "dense" (BGE only), "sparse" (BM42 only), or "hybrid" (both with RRF)
+        
         🆕 Returns BOTH text sources AND related images
         """
-        # Update top_k if specified
+        # For hybrid/sparse, we need to query Qdrant directly
+        if search_mode in ["sparse", "hybrid"]:
+            return self._query_with_mode(question, similarity_top_k, response_mode, search_mode)
+        
+        # Dense-only uses LlamaIndex
         if similarity_top_k != settings.similarity_top_k:
             self.engine = self.index.as_query_engine(
                 llm=self.llm,
@@ -88,6 +95,117 @@ class IntelligentQueryEngine:
             })
         
         # 🆕 Retrieve related images
+        images = self._get_related_images(question)
+            
+        return {
+            "question": question,
+            "answer": str(response),
+            "sources": sources,
+            "images": images,
+            "num_sources": len(sources),
+            "response_mode": response_mode,
+            "search_mode": search_mode
+        }
+    
+    def _query_with_mode(self, question: str, top_k: int, response_mode: str, search_mode: str) -> Dict[str, Any]:
+        """Query Qdrant directly with specified search mode"""
+        from app.services.embeddings import get_embedding_service, get_sparse_embedding_service
+        from qdrant_client.models import SearchParams, Prefetch, Query
+        
+        # Generate embeddings based on mode
+        dense_embedding = None
+        sparse_embedding = None
+        
+        if search_mode in ["dense", "hybrid"]:
+            dense_service = get_embedding_service()
+            dense_embedding = dense_service.generate_embeddings([question])[0]
+        
+        if search_mode in ["sparse", "hybrid"]:
+            sparse_service = get_sparse_embedding_service()
+            sparse_result = sparse_service.generate_sparse_embeddings([question])[0]
+            sparse_embedding = sparse_result
+        
+        # Query Qdrant based on mode
+        if search_mode == "dense":
+            results = self.client.query_points(
+                collection_name=settings.qdrant_collection_name,
+                query=dense_embedding,
+                using="text-dense",
+                limit=top_k,
+                with_payload=True
+            ).points
+        elif search_mode == "sparse":
+            from qdrant_client.models import SparseVector
+            results = self.client.query_points(
+                collection_name=settings.qdrant_collection_name,
+                query=SparseVector(indices=sparse_embedding.indices, values=sparse_embedding.values),
+                using="sparse",
+                limit=top_k,
+                with_payload=True
+            ).points
+        else:  # hybrid
+            from qdrant_client.models import SparseVector
+            results = self.client.query_points(
+                collection_name=settings.qdrant_collection_name,
+                prefetch=[
+                    Prefetch(query=dense_embedding, using="text-dense", limit=top_k * 2),
+                    Prefetch(
+                        query=SparseVector(indices=sparse_embedding.indices, values=sparse_embedding.values),
+                        using="sparse", 
+                        limit=top_k * 2
+                    )
+                ],
+                query=Query.fusion("rrf"),
+                limit=top_k,
+                with_payload=True
+            ).points
+        
+        # Build context from results
+        sources = []
+        context_texts = []
+        for point in results:
+            payload = point.payload
+            sources.append({
+                "paper_id": payload.get("paper_id", "unknown"),
+                "paper_title": payload.get("paper_title", "Unknown"),
+                "section_title": payload.get("section_title", "Full Text"),
+                "page_start": payload.get("page_start", 1),
+                "page_end": payload.get("page_end", 1),
+                "score": point.score or 0.0,
+                "text": payload.get("text", "")[:500]
+            })
+            context_texts.append(payload.get("text", ""))
+        
+        # Generate answer with LLM
+        context = "\n\n".join(context_texts[:top_k])
+        prompt = f"""Based on the following research paper excerpts, answer the question.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+        
+        from app.services.llm_service import get_llm
+        llm = get_llm()
+        answer = str(llm.complete(prompt))
+        
+        # Get images
+        images = self._get_related_images(question)
+        
+        return {
+            "question": question,
+            "answer": answer,
+            "sources": sources,
+            "images": images,
+            "num_sources": len(sources),
+            "response_mode": response_mode,
+            "search_mode": search_mode
+        }
+    
+    def _get_related_images(self, question: str) -> list:
+        """Retrieve related images using CLIP"""
         images = []
         if self.clip_service and self.qdrant_service:
             try:
@@ -110,15 +228,7 @@ class IntelligentQueryEngine:
                 ]
             except Exception as e:
                 print(f"⚠️ Image retrieval failed: {e}")
-            
-        return {
-            "question": question,
-            "answer": str(response),
-            "sources": sources,
-            "images": images,  # 🆕 Include images
-            "num_sources": len(sources),
-            "response_mode": response_mode
-        }
+        return images
 
 _query_engine = None
 

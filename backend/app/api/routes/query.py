@@ -38,7 +38,8 @@ async def intelligent_query(request: QueryRequest):
         result = query_engine.query(
             question=request.question,
             similarity_top_k=request.similarity_top_k,
-            response_mode=request.response_mode
+            response_mode=request.response_mode,
+            search_mode=request.search_mode  # 🆕 dense/sparse/hybrid
         )
         
         # Convert to response model

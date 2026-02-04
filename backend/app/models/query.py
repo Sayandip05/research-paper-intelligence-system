@@ -5,6 +5,7 @@ class QueryRequest(BaseModel):
     question: str = Field(..., description="The question you want to ask")
     similarity_top_k: int = Field(5, description="Number of source chunks to retrieve")
     response_mode: str = Field("compact", description="LlamaIndex response mode")
+    search_mode: str = Field("hybrid", description="Search mode: dense, sparse (BM42), or hybrid (both)")
 
 class SourceInfo(BaseModel):
     paper_id: str
