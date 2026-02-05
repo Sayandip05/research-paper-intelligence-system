@@ -15,32 +15,88 @@ API_BASE_URL = "http://localhost:8000"
 st.set_page_config(
     page_title="Research Paper Q&A",
     page_icon="📚",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS for ChatGPT-style layout
 st.markdown("""
 <style>
-    .stTabs [data-baseweb="tab-list"] {gap: 24px;}
-    .stTabs [data-baseweb="tab"] {padding: 10px 20px;}
+    /* Dark theme & ChatGPT feel */
+    .stApp {
+        background-color: #000000;
+        color: #ECECF1;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #000000;
+        border-right: 1px solid #333;
+    }
+    
+    /* Center the main content when no messages */
+    .main-content {
+        max-width: 800px;
+        margin: 0 auto;
+        padding-top: 2rem;
+    }
+    
+    /* Search options container */
+    .search-options {
+        background-color: #111111;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        border: 1px solid #333;
+    }
+    
+    /* Result styling */
+    .stMarkdown {
+        font-family: 'Söhne', 'ui-sans-serif', 'system-ui', -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', sans-serif, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'; 
+    }
+    
+    /* Chat input background */
+    .stChatInputContainer {
+        bottom: 20px;
+        background-color: #000000;
+    }
+    
+    /* Image cards */
     .image-card {
-        padding: 1rem;
+        padding: 0.5rem;
         border-radius: 8px;
-        border: 1px solid #ddd;
-        background: #f9f9f9;
-        margin-bottom: 1rem;
+        border: 1px solid #333;
+        background: #111;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Sources expander */
+    .streamlit-expanderHeader {
+        background-color: #111 !important;
+        color: #FFF !important;
+        border: 1px solid #333;
+    }
+    
+    /* Remove top padding */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 10rem !important; /* Space for chat input */
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.title("📚 Research Paper Intelligence System")
-st.caption("🆕 Unified Multimodal RAG: Hybrid Text + CLIP Images")
+# Initialize session state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 # ============== SIDEBAR ==============
 with st.sidebar:
+    st.title("📚 Research Papers")
+    st.caption("Multimodal RAG System")
+    st.divider()
+    
     # ========== PDF UPLOAD ==========
-    st.header("📤 Upload PDF")
+    st.subheader("📤 Upload PDF")
     uploaded_file = st.file_uploader(
         "Add a research paper",
         type=["pdf"],
@@ -48,7 +104,7 @@ with st.sidebar:
     )
     
     if uploaded_file:
-        if st.button("📥 Process PDF", type="primary"):
+        if st.button("📥 Process PDF", type="primary", use_container_width=True):
             with st.spinner("Uploading..."):
                 try:
                     files = {"file": (uploaded_file.name, uploaded_file, "application/pdf")}
@@ -60,7 +116,6 @@ with st.sidebar:
                         
                         # Poll for status
                         with st.spinner("Processing..."):
-                            import time
                             for _ in range(60):  # Max 60 seconds
                                 time.sleep(2)
                                 status_resp = requests.get(
@@ -71,6 +126,8 @@ with st.sidebar:
                                     status = status_resp.json()
                                     if status.get("status") == "completed":
                                         st.success(f"✅ Done! {status.get('chunks_created', 0)} chunks created")
+                                        # Clear upload to reset
+                                        time.sleep(1)
                                         st.rerun()
                                         break
                                     elif status.get("status") == "failed":
@@ -84,7 +141,7 @@ with st.sidebar:
     st.divider()
     
     # ========== CORPUS STATS ==========
-    st.header("📊 Corpus Stats")
+    st.subheader("📊 Statistics")
     try:
         stats_resp = requests.get(f"{API_BASE_URL}/api/corpus/stats", timeout=5)
         img_stats = requests.get(f"{API_BASE_URL}/api/image-stats", timeout=5)
@@ -93,130 +150,191 @@ with st.sidebar:
             stats = stats_resp.json()
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("Text Chunks", stats.get("total_chunks", 0))
+                st.metric("Docs", stats.get("total_documents", 0))
             with col2:
                 if img_stats.status_code == 200:
                     st.metric("Images", img_stats.json().get("total_images", 0))
-            
-            st.success("🔀 Hybrid Search: Active")
-            st.success("🖼️ Image Search: Active")
+            st.caption(f"Total Chunks: {stats.get('total_chunks', 0)}")
     except:
         st.warning("Cannot fetch stats")
     
     st.divider()
     
     # ========== SYSTEM HEALTH ==========
-    st.header("🔧 System Status")
+    st.subheader("🔧 System Status")
     try:
         health = requests.get(f"{API_BASE_URL}/health", timeout=3)
         if health.status_code == 200:
-            st.success("✅ Backend: Connected")
+            st.success("● Backend Online")
         else:
-            st.error("❌ Backend: Error")
+            st.error("● Backend Error")
     except:
-        st.error("❌ Backend: Offline")
+        st.error("● Backend Offline")
 
 # ============== MAIN CONTENT ==============
-st.header("💬 Research Paper Q&A")
 
-# Initialize session state for results
-if 'last_result' not in st.session_state:
-    st.session_state.last_result = None
+# Centered Header & Settings (Only show if no messages or reduced version)
+if not st.session_state.messages:
+    col_spacer_l, col_main, col_spacer_r = st.columns([1, 2, 1])
+    with col_main:
+        st.write("")
+        st.write("")
+        st.markdown("<h1 style='text-align: center;'>Research Paper Intelligence</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #aaa;'>Ask detailed questions about your uploaded documents.</p>", unsafe_allow_html=True)
+        
+        st.write("")
+        
+        # Settings Container
+        with st.container():
+            st.markdown('<div class="search-options">', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("**Search Mode**")
+                search_mode = st.selectbox(
+                    "Search Mode",
+                    ["hybrid", "dense", "sparse"],
+                    format_func=lambda x: {"hybrid": "🔀 Hybrid (Best)", "dense": "🧠 Dense Only", "sparse": "📝 Keyword Only"}[x],
+                    label_visibility="collapsed",
+                    key="search_mode_select"
+                )
+            with c2:
+                st.markdown("**Depth (Top K)**")
+                top_k = st.slider("Depth", 3, 10, 5, label_visibility="collapsed", key="top_k_slider")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-# ========== RESULTS AREA (TOP) ==========
-if st.session_state.last_result:
-    result = st.session_state.last_result
-    
-    # Answer
-    st.success("✅ Answer")
-    st.markdown(result.get("answer", "No answer"))
-    
-    # Images
-    images = result.get("images", [])
-    if images:
-        st.divider()
-        st.subheader(f"🖼️ Related Images ({len(images)})")
-        cols = st.columns(min(len(images), 3))
-        for i, img in enumerate(images):
-            with cols[i % 3]:
-                image_id = img.get('image_id', '')
-                try:
-                    img_response = requests.get(
-                        f"{API_BASE_URL}/api/image-by-id/{image_id}",
-                        timeout=10
-                    )
-                    if img_response.status_code == 200:
-                        st.image(
-                            img_response.content,
-                            caption=f"Page {img.get('page_number', 'N/A')} | {img.get('image_type', 'figure')}",
-                            use_container_width=True
-                        )
-                    else:
-                        st.info(f"🖼️ Image {i+1}\n📄 {img.get('paper_title', '')[:25]}...")
-                except:
-                    st.info(f"🖼️ Image {i+1}\n📍 Page {img.get('page_number', 'N/A')}")
-                st.caption(f"Score: {img.get('score', 0):.2f}")
-    
-    # Sources
-    sources = result.get("sources", [])
-    if sources:
-        st.divider()
-        st.subheader(f"📖 Text Sources ({len(sources)})")
-        for i, source in enumerate(sources, 1):
-            with st.expander(f"Source {i}: {source.get('paper_title', 'Unknown')}"):
-                st.caption(f"Section: {source.get('section_title', 'N/A')}")
-                st.text(source.get("text", "")[:500] + "...")
-
-# ========== INPUT AREA (BOTTOM) ==========
-st.divider()
-
-# Options row
-col1, col2 = st.columns(2)
-with col1:
-    top_k = st.slider("Text sources", 3, 10, 5)
-with col2:
-    search_mode = st.selectbox(
-        "Search Mode",
-        ["hybrid", "dense", "sparse"],
-        format_func=lambda x: {"hybrid": "🔀 Hybrid (Both)", "dense": "🧠 Dense (BGE)", "sparse": "📝 BM42 (Sparse)"}[x],
-        index=0
-    )
-
-# Question input (at bottom like ChatGPT)
-col_input, col_btn = st.columns([5, 1])
-with col_input:
-    question = st.text_input(
-        "Ask about your research papers:",
-        placeholder="What is LoRA? How does the Transformer architecture work?",
-        label_visibility="collapsed"
-    )
-with col_btn:
-    submit = st.button("🔍", type="primary", disabled=not question)
-
-if submit and question:
-    with st.spinner(f"Searching with {search_mode} mode..."):
-        try:
-            response = requests.post(
-                f"{API_BASE_URL}/api/query",
-                json={
-                    "question": question,
-                    "similarity_top_k": top_k,
-                    "response_mode": "compact",
-                    "search_mode": search_mode
-                },
-                timeout=60
+else:
+    # If messages exist, show a compact settings bar at the top
+    with st.expander("⚙️ Search Settings", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            search_mode = st.selectbox(
+                "Search Mode",
+                ["hybrid", "dense", "sparse"],
+                format_func=lambda x: {"hybrid": "🔀 Hybrid (Best)", "dense": "🧠 Dense Only", "sparse": "📝 Keyword Only"}[x],
+                label_visibility="collapsed",
+                key="search_mode_select_compact",
+                index=["hybrid", "dense", "sparse"].index(st.session_state.get("last_mode", "hybrid")) 
             )
-            
-            if response.status_code == 200:
-                st.session_state.last_result = response.json()
-                st.rerun()
-            else:
-                st.error(f"Query failed: {response.status_code}")
-                
-        except requests.exceptions.ConnectionError:
-            st.error("❌ Cannot connect to backend")
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+        with c2:
+            top_k = st.slider("Depth", 3, 10, 5, label_visibility="collapsed", key="top_k_slider_compact", value=st.session_state.get("last_k", 5))
 
-# Footer
-st.caption("🔬 Multimodal RAG v5.1 | Hybrid Text (Dense+BM42) + CLIP Images | Built with LlamaIndex & Qdrant")
+# Display Chat History
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        if msg["role"] == "user":
+            st.markdown(msg["content"])
+        else:
+            # Display Answer
+            st.markdown(msg["content"])
+            
+            # Display Images if present
+            if "images" in msg and msg["images"]:
+                st.write("")
+                st.markdown(f"**🖼️ Related Images ({len(msg['images'])})**")
+                cols = st.columns(min(len(msg["images"]), 3))
+                for i, img in enumerate(msg["images"]):
+                    with cols[i % 3]:
+                        image_id = img.get('image_id', '')
+                        try:
+                            # Direct fetch for display
+                            img_response = requests.get(
+                                f"{API_BASE_URL}/api/image-by-id/{image_id}",
+                                timeout=10
+                            )
+                            if img_response.status_code == 200:
+                                st.image(
+                                    img_response.content,
+                                    caption=f"Page {img.get('page_number', 'N/A')} | {img.get('image_type', 'figure')}",
+                                    use_container_width=True
+                                )
+                        except:
+                            st.caption(f"Image {i+1} (Pg {img.get('page_number')})")
+            
+            # Display Sources if present
+            if "sources" in msg and msg["sources"]:
+                st.write("")
+                with st.expander(f"📚 View {len(msg['sources'])} Sources"):
+                    for i, source in enumerate(msg["sources"], 1):
+                        st.markdown(f"**{i}. {source.get('paper_title', 'Unknown')}** (Section: {source.get('section_title', 'N/A')})")
+                        st.caption(source.get("text", "")[:500] + "...")
+                        st.divider()
+
+# Chat Input (Fixed at bottom)
+if prompt := st.chat_input("Ask a question about your papers..."):
+    # Store settings used for this query
+    st.session_state["last_mode"] = search_mode
+    st.session_state["last_k"] = top_k
+
+    # Add user message
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Generate response
+    with st.chat_message("assistant"):
+        with st.spinner(f"Thinking ({search_mode})..."):
+            try:
+                response = requests.post(
+                    f"{API_BASE_URL}/api/query",
+                    json={
+                        "question": prompt,
+                        "similarity_top_k": top_k,
+                        "response_mode": "compact",
+                        "search_mode": search_mode
+                    },
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    answer_text = result.get("answer", "No answer generated.")
+                    sources = result.get("sources", [])
+                    images = result.get("images", [])
+                    
+                    # Display Answer
+                    st.markdown(answer_text)
+                    
+                    # Display Images
+                    if images:
+                        st.write("")
+                        st.markdown(f"**🖼️ Related Images ({len(images)})**")
+                        cols = st.columns(min(len(images), 3))
+                        for i, img in enumerate(images):
+                            with cols[i % 3]:
+                                image_id = img.get('image_id', '')
+                                try:
+                                    img_response = requests.get(
+                                        f"{API_BASE_URL}/api/image-by-id/{image_id}",
+                                        timeout=10
+                                    )
+                                    if img_response.status_code == 200:
+                                        st.image(
+                                            img_response.content,
+                                            caption=f"Page {img.get('page_number', 'N/A')} | {img.get('image_type', 'figure')}",
+                                            use_container_width=True
+                                        )
+                                except:
+                                    pass
+
+                    # Display Sources
+                    if sources:
+                        st.write("")
+                        with st.expander(f"📚 View {len(sources)} Sources"):
+                            for i, source in enumerate(sources, 1):
+                                st.markdown(f"**{i}. {source.get('paper_title', 'Unknown')}** (Section: {source.get('section_title', 'N/A')})")
+                                st.caption(source.get("text", "")[:500] + "...")
+                                st.divider()
+                    
+                    # Save to history
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": answer_text,
+                        "sources": sources,
+                        "images": images
+                    })
+                    
+                else:
+                    error_msg = f"Error: {response.status_code}"
+                    st.error(error_msg)
+            except Exception as e:
+                st.error(f"Connection Error: {str(e)}")
