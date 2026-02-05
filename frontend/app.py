@@ -61,6 +61,19 @@ st.markdown("""
         background-color: #000000;
     }
     
+    /* Style for the info text above chat input */
+    .chat-info-text {
+        text-align: center;
+        color: #9aa0a6;
+        font-size: 0.85em;
+        padding: 0.5rem;
+        background-color: #111;
+        border: 1px solid #333;
+        border-radius: 10px 10px 0 0;
+        border-bottom: none;
+        margin-bottom: -1px;
+    }
+    
     /* Image cards */
     .image-card {
         padding: 0.5rem;
@@ -180,27 +193,32 @@ if not st.session_state.messages:
         st.write("")
         st.write("")
         st.markdown("<h1 style='text-align: center;'>Research Paper Intelligence</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #aaa;'>Ask detailed questions about your uploaded documents.</p>", unsafe_allow_html=True)
-        
+        st.markdown("<p style='text-align: center; color: #aaa;'>Ask in-depth questions about research papers using advanced Dense (BGE) + Sparse (BM42) multimodal retrieval with HITL validation</p>", unsafe_allow_html=True)
         st.write("")
         
         # Settings Container
         with st.container():
-            st.markdown('<div class="search-options">', unsafe_allow_html=True)
+
+
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown("**Search Mode**")
                 search_mode = st.selectbox(
                     "Search Mode",
                     ["hybrid", "dense", "sparse"],
-                    format_func=lambda x: {"hybrid": "🔀 Hybrid (Best)", "dense": "🧠 Dense Only", "sparse": "📝 Keyword Only"}[x],
+                    format_func=lambda x: {
+                        "hybrid": "🔀 Hybrid (Best)",
+                        "dense": "🧠 Dense Only",
+                        "sparse": "📝 Keyword Only"
+                    }[x],
                     label_visibility="collapsed",
                     key="search_mode_select"
                 )
             with c2:
                 st.markdown("**Depth (Top K)**")
                 top_k = st.slider("Depth", 3, 10, 5, label_visibility="collapsed", key="top_k_slider")
-            st.markdown('</div>', unsafe_allow_html=True)
+
+
 
 else:
     # If messages exist, show a compact settings bar at the top
@@ -258,6 +276,7 @@ for msg in st.session_state.messages:
                         st.markdown(f"**{i}. {source.get('paper_title', 'Unknown')}** (Section: {source.get('section_title', 'N/A')})")
                         st.caption(source.get("text", "")[:500] + "...")
                         st.divider()
+
 
 # Chat Input (Fixed at bottom)
 if prompt := st.chat_input("Ask a question about your papers..."):
