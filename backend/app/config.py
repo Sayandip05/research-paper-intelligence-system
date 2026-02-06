@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     enable_guardrails: bool = True
     confidence_threshold: float = 0.5
     
+    # Langfuse Tracing
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "http://localhost:3000"
+    enable_langfuse: bool = True
+    
     corpus_dir: str = "../corpus"
     
     class Config:
