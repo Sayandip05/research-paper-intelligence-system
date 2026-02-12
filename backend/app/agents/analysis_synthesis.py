@@ -16,6 +16,7 @@ from app.models.events import (
     AnalysisEvent, StopEvent, HumanReviewEvent, IntentType
 )
 from app.services.llm_service import get_llm
+from langfuse.decorators import observe
 
 
 class AnalysisSynthesisAgent:
@@ -32,6 +33,7 @@ class AnalysisSynthesisAgent:
         self.llm = get_llm()
         print("🧪 Analysis & Synthesis Agent initialized")
     
+    @observe(name="Agent_AnalysisSynthesis")
     def process(self, event: AnalysisEvent) -> StopEvent | HumanReviewEvent:
         """
         Analyze evidence and synthesize answer
@@ -102,6 +104,7 @@ class AnalysisSynthesisAgent:
         
         return any(hint in question_lower for hint in brevity_hints)
     
+    @observe(name="Synthesize_Summary")
     def _synthesize_summary(self, event: AnalysisEvent, brief_mode: bool = False) -> dict:
         """
         Synthesize summary with verbosity control.
@@ -169,6 +172,7 @@ Provide your answer:"""
         """Extract factual information from evidence (legacy method)"""
         return self._synthesize_summary(event, brief_mode=False)
     
+    @observe(name="Compare_Papers")
     def _compare_papers(self, event: AnalysisEvent) -> dict:
         """Compare approaches across papers"""
         
@@ -200,6 +204,7 @@ Provide your comparison:"""
             "confidence": confidence
         }
     
+    @observe(name="Identify_Gaps")
     def _identify_gaps(self, event: AnalysisEvent) -> dict:
         """Identify research gaps and limitations"""
         

@@ -2,6 +2,7 @@ from typing import List, Dict, Any
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
+from langfuse.decorators import observe, langfuse_context
 
 from app.config import get_settings
 from app.services.llm_service import get_llm
@@ -56,6 +57,7 @@ class IntelligentQueryEngine:
         else:
             print("✅ Intelligent Query Engine initialized")
 
+    @observe(name="RAG_Query")
     def query(self, question: str, similarity_top_k: int = 5, response_mode: str = "compact", search_mode: str = "hybrid") -> Dict[str, Any]:
         """
         Execute a query against the research papers
@@ -107,6 +109,7 @@ class IntelligentQueryEngine:
             "search_mode": search_mode
         }
     
+    @observe(name="Qdrant_Retrieval")
     def _query_with_mode(self, question: str, top_k: int, response_mode: str, search_mode: str) -> Dict[str, Any]:
         """Query Qdrant directly with specified search mode"""
         from app.services.embeddings import get_embedding_service, get_sparse_embedding_service
@@ -204,6 +207,7 @@ Answer:"""
             "search_mode": search_mode
         }
     
+    @observe(name="CLIP_Image_Retrieval")
     def _get_related_images(self, question: str) -> list:
         """Retrieve related images using CLIP"""
         images = []

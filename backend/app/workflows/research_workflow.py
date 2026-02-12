@@ -17,6 +17,7 @@ from app.models.events import (
 from app.agents.query_orchestrator import QueryOrchestratorAgent
 from app.agents.evidence_retrieval import EvidenceRetrievalAgent
 from app.agents.analysis_synthesis import AnalysisSynthesisAgent
+from langfuse.decorators import observe
 from typing import Optional
 import uuid
 
@@ -45,6 +46,7 @@ class ResearchWorkflow(Workflow):
         print("="*70 + "\n")
     
     @step
+    @observe(name="Workflow_Step1_Orchestrate")
     async def orchestrate_query(self, ev: StartEvent) -> RetrievalEvent:
         """
         Step 1: Query Orchestrator
@@ -72,6 +74,7 @@ class ResearchWorkflow(Workflow):
         return retrieval_event
     
     @step
+    @observe(name="Workflow_Step2_Retrieve")
     async def retrieve_evidence(self, ev: RetrievalEvent) -> AnalysisEvent | HumanReviewEvent:
         """
         Step 2: Evidence Retrieval
@@ -89,6 +92,7 @@ class ResearchWorkflow(Workflow):
         return result
     
     @step
+    @observe(name="Workflow_Step3_Analyze")
     async def analyze_and_synthesize(self, ev: AnalysisEvent) -> StopEvent | HumanReviewEvent:
         """
         Step 3: Analysis & Synthesis
@@ -117,6 +121,7 @@ class ResearchWorkflow(Workflow):
         return result
     
     @step
+    @observe(name="Workflow_Step4_HumanReview")
     async def handle_human_review(self, ev: HumanReviewEvent) -> StopEvent:
         """
         Handle human review requests
@@ -162,6 +167,7 @@ def get_workflow() -> ResearchWorkflow:
 
 
 # Convenience function for simple execution
+@observe(name="Research_Workflow_Execute")
 async def execute_workflow(question: str, session_id: Optional[str] = None) -> dict:
     """Execute workflow with simple interface"""
     workflow = get_workflow()

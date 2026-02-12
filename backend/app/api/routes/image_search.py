@@ -2,6 +2,7 @@
 🆕 Image Search API Endpoint
 """
 from fastapi import APIRouter, HTTPException
+from langfuse.decorators import observe
 from app.models.image import ImageSearchRequest, ImageSearchResponse
 from app.services.clip_embedding import get_clip_embedding_service
 from app.db.qdrant_client import QdrantService
@@ -10,6 +11,7 @@ router = APIRouter()
 
 
 @router.post("/image-search", response_model=ImageSearchResponse)
+@observe(name="CLIP_Image_Search")
 async def search_images(request: ImageSearchRequest):
     """
     Search for images using text query

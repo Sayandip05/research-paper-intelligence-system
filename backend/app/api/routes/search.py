@@ -6,6 +6,7 @@ Provides vector search endpoints with BM42 hybrid search.
 
 from fastapi import APIRouter
 from pydantic import BaseModel
+from langfuse.decorators import observe
 from typing import List, Optional
 from app.models.chunk import SearchRequest, SearchResponse
 from app.services.embeddings import get_embedding_service, get_sparse_embedding_service
@@ -33,6 +34,7 @@ class HybridSearchResponse(BaseModel):
 
 
 @router.post("/search", response_model=SearchResponse)
+@observe(name="Dense_Search")
 def search_papers(request: SearchRequest):
     """
     Search across all papers (dense-only for backward compatibility)
@@ -60,6 +62,7 @@ def search_papers(request: SearchRequest):
 
 
 @router.post("/search/hybrid", response_model=HybridSearchResponse)
+@observe(name="Hybrid_Search")
 def hybrid_search(request: HybridSearchRequest):
     """
     🆕 Hybrid Search - Dense + BM42 Sparse with RRF Fusion

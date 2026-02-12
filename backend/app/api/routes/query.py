@@ -5,13 +5,16 @@ This is the main endpoint users will use!
 """
 
 from fastapi import APIRouter, HTTPException
+from langfuse.decorators import observe
 from app.models.query import QueryRequest, QueryResponse, SourceInfo, ImageInfo
 from app.services.query_engine import get_query_engine
+from app.services.langfuse_utils import flush_langfuse
 
 router = APIRouter()
 
 
 @router.post("/query", response_model=QueryResponse)
+@observe(name="Stateless_Query")
 async def intelligent_query(request: QueryRequest):
     """
     🧠 Intelligent Query Endpoint
@@ -43,7 +46,7 @@ async def intelligent_query(request: QueryRequest):
         )
         
         # Convert to response model
-        return QueryResponse(
+        response = QueryResponse(
             question=result["question"],
             answer=result["answer"],
             sources=[SourceInfo(**s) for s in result["sources"]],
@@ -51,6 +54,8 @@ async def intelligent_query(request: QueryRequest):
             num_sources=result["num_sources"],
             response_mode=result["response_mode"]
         )
+        flush_langfuse()
+        return response
     
     except Exception as e:
         import traceback
@@ -110,6 +115,7 @@ async def get_example_queries():
 
 
 @router.post("/query/simple")
+@observe(name="Simple_Query")
 async def simple_query(question: str, top_k: int = 5):
     """
     Simplified query endpoint - just question and top_k

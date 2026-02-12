@@ -16,6 +16,7 @@ from app.services.embeddings import get_embedding_service, get_sparse_embedding_
 from app.services.clip_embedding import get_clip_embedding_service
 from app.db.qdrant_client import QdrantService
 from app.config import get_settings
+from langfuse.decorators import observe
 from typing import Union
 
 settings = get_settings()
@@ -52,6 +53,7 @@ class EvidenceRetrievalAgent:
         else:
             print("🔍 Evidence Retrieval Agent initialized (HYBRID only)")
     
+    @observe(name="Agent_EvidenceRetrieval")
     def process(self, event: RetrievalEvent) -> Union[AnalysisEvent, HumanReviewEvent]:
         """
         🆕 Retrieve BOTH text and images

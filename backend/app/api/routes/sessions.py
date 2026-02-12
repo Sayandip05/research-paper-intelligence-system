@@ -2,12 +2,14 @@
 Session API Routes — ChatGPT-style chat sessions
 """
 from fastapi import APIRouter, HTTPException
+from langfuse.decorators import observe
 from app.models.session import (
     SessionCreate, SessionRename, SessionQueryRequest,
     SessionInfo, SessionDetail
 )
 from app.services.session_service import get_session_service
 from app.services.query_engine import get_query_engine
+from app.services.langfuse_utils import flush_langfuse
 
 router = APIRouter()
 
@@ -59,6 +61,7 @@ async def rename_session(session_id: str, request: SessionRename):
 
 
 @router.post("/sessions/{session_id}/query")
+@observe(name="Session_Query")
 async def session_query(session_id: str, request: SessionQueryRequest):
     """
     Query within a session — saves both user question and assistant answer.
@@ -97,7 +100,7 @@ async def session_query(session_id: str, request: SessionQueryRequest):
         )
         
         # 4. Return response (same format as /api/query)
-        return {
+        response = {
             "question": result["question"],
             "answer": result["answer"],
             "sources": result.get("sources", []),
@@ -106,6 +109,8 @@ async def session_query(session_id: str, request: SessionQueryRequest):
             "search_mode": request.search_mode,
             "session_id": session_id
         }
+        flush_langfuse()
+        return response
     
     except HTTPException:
         raise

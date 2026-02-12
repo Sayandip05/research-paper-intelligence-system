@@ -20,6 +20,7 @@ Architecture:
 from guardrails import Guard
 from pydantic import BaseModel, Field, field_validator
 from typing import Dict, Any, List, Optional
+from langfuse.decorators import observe
 import json
 
 
@@ -113,6 +114,7 @@ class GuardrailsService:
     # Main Validation Entry Point
     # ============================================================
     
+    @observe(name="Guardrails_ValidateEnforce")
     def validate_and_enforce(
         self,
         llm_output: Dict[str, Any],
@@ -212,6 +214,7 @@ class GuardrailsService:
     # Schema Validation with Guardrails AI
     # ============================================================
     
+    @observe(name="Guardrails_SchemaValidation")
     def _validate_schema(
         self,
         llm_output: Dict[str, Any],
@@ -266,6 +269,7 @@ class GuardrailsService:
     # Citation Grounding (Rule-Based)
     # ============================================================
     
+    @observe(name="Guardrails_CitationGrounding")
     def _validate_citation_grounding(
         self,
         citations: List[Dict],
@@ -320,6 +324,7 @@ class GuardrailsService:
     # Hallucination Detection (Rule-Based)
     # ============================================================
     
+    @observe(name="Guardrails_HallucinationCheck")
     def _check_hallucinations(
         self,
         answer: str,

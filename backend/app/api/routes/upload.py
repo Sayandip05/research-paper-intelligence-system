@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from pydantic import BaseModel
+from langfuse.decorators import observe
 from typing import List
 import shutil
 
@@ -44,6 +45,7 @@ class ProcessingStatus(BaseModel):
     error: str = None
 
 
+@observe(name="PDF_Processing")
 def process_pdf(filepath: Path, filename: str):
     """
     Background task to process uploaded PDF with hybrid embeddings
@@ -157,6 +159,7 @@ def process_pdf(filepath: Path, filename: str):
 
 
 @router.post("/upload", response_model=UploadResponse)
+@observe(name="PDF_Upload")
 async def upload_pdf(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...)

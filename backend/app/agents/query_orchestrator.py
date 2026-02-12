@@ -12,6 +12,7 @@ NEVER answers questions
 
 from app.models.events import StartEvent, RetrievalEvent, IntentType
 from app.services.llm_service import get_llm
+from langfuse.decorators import observe
 from typing import Optional
 
 
@@ -29,6 +30,7 @@ class QueryOrchestratorAgent:
         self.llm = get_llm()
         print("🧠 Query Orchestrator Agent initialized")
     
+    @observe(name="Agent_QueryOrchestrator")
     def process(self, event: StartEvent) -> RetrievalEvent:
         """
         Classify intent and emit retrieval instructions
@@ -68,6 +70,7 @@ class QueryOrchestratorAgent:
             original_question=question
         )
     
+    @observe(name="Intent_Classification")
     def _classify_intent(self, question: str) -> IntentType:
         """
         Classify question intent
