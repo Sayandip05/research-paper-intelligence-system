@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     langfuse_host: str = "http://localhost:3000"
     enable_langfuse: bool = True
     
+    # MongoDB (Session Memory)
+    mongodb_uri: str = "mongodb://localhost:27017"
+    mongodb_db_name: str = "research_paper_intel"
+    
     corpus_dir: str = "../corpus"
     
     class Config:

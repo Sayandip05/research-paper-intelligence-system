@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.routes import search, query, upload, image_search, images
+from app.api.routes import search, query, upload, image_search, images, sessions
 from app.config import get_settings
 
 # Initialize Langfuse tracing for LlamaIndex
@@ -33,6 +33,7 @@ app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(image_search.router, prefix="/api", tags=["Image Search"])
 app.include_router(images.router, prefix="/api", tags=["Images"])  # 🆕 Serve actual images
+app.include_router(sessions.router, prefix="/api", tags=["Sessions"])  # 🆕 Chat sessions
 
 @app.get("/")
 def root():

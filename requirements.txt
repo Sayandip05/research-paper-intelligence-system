@@ -50,3 +50,7 @@ streamlit
 # Langfuse Tracing
 langfuse
 llama-index-callbacks-langfuse
+
+# MongoDB (Session Memory)
+pymongo
+llama-index-storage-chat-store-mongo

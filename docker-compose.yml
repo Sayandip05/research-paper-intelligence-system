@@ -13,8 +13,20 @@ services:
     networks:
       - paper_network
 
+  # MongoDB (Session Memory)
+  mongodb:
+    image: mongo:7
+    container_name: paper_analyzer_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - paper_network
+
 volumes:
   qdrant_data:
+  mongo_data:
 
 
 networks:

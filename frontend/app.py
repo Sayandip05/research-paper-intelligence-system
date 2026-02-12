@@ -1,7 +1,7 @@
 """
 Multimodal Research Paper RAG - Streamlit Frontend
 
-🆕 Unified search: Returns text + images together
+🆕 ChatGPT-style sessions with MongoDB persistence
 """
 
 import streamlit as st
@@ -41,15 +41,6 @@ st.markdown("""
         padding-top: 2rem;
     }
     
-    /* Search options container */
-    .search-options {
-        background-color: #111111;
-        padding: 1.5rem;
-        border-radius: 10px;
-        margin-bottom: 2rem;
-        border: 1px solid #333;
-    }
-    
     /* Result styling */
     .stMarkdown {
         font-family: 'Söhne', 'ui-sans-serif', 'system-ui', -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', sans-serif, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'; 
@@ -59,19 +50,6 @@ st.markdown("""
     .stChatInputContainer {
         bottom: 20px;
         background-color: #000000;
-    }
-    
-    /* Style for the info text above chat input */
-    .chat-info-text {
-        text-align: center;
-        color: #9aa0a6;
-        font-size: 0.85em;
-        padding: 0.5rem;
-        background-color: #111;
-        border: 1px solid #333;
-        border-radius: 10px 10px 0 0;
-        border-bottom: none;
-        margin-bottom: -1px;
     }
     
     /* Image cards */
@@ -93,19 +71,123 @@ st.markdown("""
     /* Remove top padding */
     .block-container {
         padding-top: 2rem !important;
-        padding-bottom: 10rem !important; /* Space for chat input */
+        padding-bottom: 10rem !important;
+    }
+    
+    /* Session buttons in sidebar */
+    .session-btn {
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 2px;
+        cursor: pointer;
+        color: #ccc;
+        font-size: 0.9em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
+# ── Session State Initialization ──────────────────────────────────
+if "active_session_id" not in st.session_state:
+    st.session_state.active_session_id = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "sessions_list" not in st.session_state:
+    st.session_state.sessions_list = []
+
+
+# ── Helper Functions ──────────────────────────────────────────────
+def fetch_sessions():
+    """Fetch all sessions from backend"""
+    try:
+        resp = requests.get(f"{API_BASE_URL}/api/sessions", timeout=5)
+        if resp.status_code == 200:
+            st.session_state.sessions_list = resp.json().get("sessions", [])
+    except:
+        st.session_state.sessions_list = []
+
+
+def load_session(session_id):
+    """Load a session's messages from backend"""
+    try:
+        resp = requests.get(f"{API_BASE_URL}/api/sessions/{session_id}", timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            st.session_state.active_session_id = session_id
+            st.session_state.messages = data.get("messages", [])
+            return True
+    except:
+        pass
+    return False
+
+
+def create_new_session():
+    """Create a new session via backend"""
+    try:
+        resp = requests.post(f"{API_BASE_URL}/api/sessions", json={}, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            st.session_state.active_session_id = data["session_id"]
+            st.session_state.messages = []
+            return data["session_id"]
+    except:
+        pass
+    return None
+
+
+def delete_session(session_id):
+    """Delete a session"""
+    try:
+        requests.delete(f"{API_BASE_URL}/api/sessions/{session_id}", timeout=5)
+    except:
+        pass
+
+
+# ── Fetch sessions on load ────────────────────────────────────────
+fetch_sessions()
+
 
 # ============== SIDEBAR ==============
 with st.sidebar:
     st.title("📚 Research Papers")
     st.caption("Multimodal RAG System")
+    st.divider()
+    
+    # ========== NEW CHAT BUTTON ==========
+    if st.button("➕ New Chat", type="primary", use_container_width=True):
+        create_new_session()
+        st.rerun()
+    
+    st.divider()
+    
+    # ========== SESSION LIST ==========
+    st.subheader("💬 Chat History")
+    
+    if st.session_state.sessions_list:
+        for session in st.session_state.sessions_list:
+            sid = session["session_id"]
+            title = session.get("title", "New Chat")
+            is_active = sid == st.session_state.active_session_id
+            
+            col_btn, col_del = st.columns([5, 1])
+            with col_btn:
+                label = f"{'▶ ' if is_active else ''}{title}"
+                if st.button(label, key=f"session_{sid}", use_container_width=True):
+                    load_session(sid)
+                    st.rerun()
+            with col_del:
+                if st.button("🗑️", key=f"del_{sid}"):
+                    delete_session(sid)
+                    if st.session_state.active_session_id == sid:
+                        st.session_state.active_session_id = None
+                        st.session_state.messages = []
+                    st.rerun()
+    else:
+        st.caption("No sessions yet. Click 'New Chat' to start.")
+    
     st.divider()
     
     # ========== PDF UPLOAD ==========
@@ -129,7 +211,7 @@ with st.sidebar:
                         
                         # Poll for status
                         with st.spinner("Processing..."):
-                            for _ in range(60):  # Max 60 seconds
+                            for _ in range(60):
                                 time.sleep(2)
                                 status_resp = requests.get(
                                     f"{API_BASE_URL}/api/upload/status/{uploaded_file.name}",
@@ -139,7 +221,6 @@ with st.sidebar:
                                     status = status_resp.json()
                                     if status.get("status") == "completed":
                                         st.success(f"✅ Done! {status.get('chunks_created', 0)} chunks created")
-                                        # Clear upload to reset
                                         time.sleep(1)
                                         st.rerun()
                                         break
@@ -186,7 +267,7 @@ with st.sidebar:
 
 # ============== MAIN CONTENT ==============
 
-# Centered Header & Settings (Only show if no messages or reduced version)
+# Centered Header & Settings (Only show if no messages)
 if not st.session_state.messages:
     col_spacer_l, col_main, col_spacer_r = st.columns([1, 2, 1])
     with col_main:
@@ -198,8 +279,6 @@ if not st.session_state.messages:
         
         # Settings Container
         with st.container():
-
-
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown("**Search Mode**")
@@ -217,8 +296,6 @@ if not st.session_state.messages:
             with c2:
                 st.markdown("**Depth (Top K)**")
                 top_k = st.slider("Depth", 3, 10, 5, label_visibility="collapsed", key="top_k_slider")
-
-
 
 else:
     # If messages exist, show a compact settings bar at the top
@@ -238,23 +315,24 @@ else:
 
 # Display Chat History
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        if msg["role"] == "user":
+    role = msg.get("role", "user")
+    with st.chat_message(role):
+        if role == "user":
             st.markdown(msg["content"])
         else:
             # Display Answer
             st.markdown(msg["content"])
             
             # Display Images if present
-            if "images" in msg and msg["images"]:
+            images = msg.get("images") or []
+            if images:
                 st.write("")
-                st.markdown(f"**🖼️ Related Images ({len(msg['images'])})**")
-                cols = st.columns(min(len(msg["images"]), 3))
-                for i, img in enumerate(msg["images"]):
+                st.markdown(f"**🖼️ Related Images ({len(images)})**")
+                cols = st.columns(min(len(images), 3))
+                for i, img in enumerate(images):
                     with cols[i % 3]:
                         image_id = img.get('image_id', '')
                         try:
-                            # Direct fetch for display
                             img_response = requests.get(
                                 f"{API_BASE_URL}/api/image-by-id/{image_id}",
                                 timeout=10
@@ -269,10 +347,11 @@ for msg in st.session_state.messages:
                             st.caption(f"Image {i+1} (Pg {img.get('page_number')})")
             
             # Display Sources if present
-            if "sources" in msg and msg["sources"]:
+            sources = msg.get("sources") or []
+            if sources:
                 st.write("")
-                with st.expander(f"📚 View {len(msg['sources'])} Sources"):
-                    for i, source in enumerate(msg["sources"], 1):
+                with st.expander(f"📚 View {len(sources)} Sources"):
+                    for i, source in enumerate(sources, 1):
                         st.markdown(f"**{i}. {source.get('paper_title', 'Unknown')}** (Section: {source.get('section_title', 'N/A')})")
                         st.caption(source.get("text", "")[:500] + "...")
                         st.divider()
@@ -284,21 +363,26 @@ if prompt := st.chat_input("Ask a question about your papers..."):
     st.session_state["last_mode"] = search_mode
     st.session_state["last_k"] = top_k
 
-    # Add user message
+    # Auto-create session if none active
+    if not st.session_state.active_session_id:
+        create_new_session()
+
+    session_id = st.session_state.active_session_id
+
+    # Add user message to local state
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Generate response
+    # Generate response via session endpoint
     with st.chat_message("assistant"):
         with st.spinner(f"Thinking ({search_mode})..."):
             try:
                 response = requests.post(
-                    f"{API_BASE_URL}/api/query",
+                    f"{API_BASE_URL}/api/sessions/{session_id}/query",
                     json={
                         "question": prompt,
                         "similarity_top_k": top_k,
-                        "response_mode": "compact",
                         "search_mode": search_mode
                     },
                     timeout=60
@@ -344,7 +428,7 @@ if prompt := st.chat_input("Ask a question about your papers..."):
                                 st.caption(source.get("text", "")[:500] + "...")
                                 st.divider()
                     
-                    # Save to history
+                    # Save to local history
                     st.session_state.messages.append({
                         "role": "assistant",
                         "content": answer_text,
