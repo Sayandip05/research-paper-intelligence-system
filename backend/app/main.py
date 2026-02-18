@@ -8,21 +8,14 @@ settings = get_settings()
 # Initialize Langfuse tracing for LlamaIndex
 if settings.enable_langfuse and settings.langfuse_public_key:
     try:
-        from llama_index.core import Settings as LlamaSettings
-        from llama_index.core.callbacks import CallbackManager
-        from llama_index.callbacks.langfuse import LlamaIndexCallbackHandler
+        from langfuse.llama_index import LlamaIndexInstrumentor
         
-        langfuse_handler = LlamaIndexCallbackHandler(
-            public_key=settings.langfuse_public_key,
-            secret_key=settings.langfuse_secret_key,
-            host=settings.langfuse_host
-        )
-        LlamaSettings.callback_manager = CallbackManager([langfuse_handler])
-        print("✅ Langfuse LlamaIndex callback enabled")
+        LlamaIndexInstrumentor().start()
+        print("✅ Langfuse LlamaIndex Instrumentor enabled")
     except ImportError as e:
-        print(f"⚠️ Langfuse LlamaIndex callback not available: {e}")
+        print(f"⚠️ Langfuse LlamaIndex instrumentor not available: {e}")
     except Exception as e:
-        print(f"⚠️ Langfuse LlamaIndex callback failed: {e}")
+        print(f"⚠️ Langfuse LlamaIndex instrumentor failed: {e}")
 
 
 @asynccontextmanager

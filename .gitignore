@@ -1,14 +1,21 @@
 ﻿# Virtual Environments
 venv/
 venv_clean/
+.venv/
 
 # Python Cache
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
 
 # Environment Variables
 .env
+.env.local
 
 # MacOS
 .DS_Store
@@ -17,10 +24,31 @@ __pycache__/
 debug_model.py
 verify_system.py
 
-# Model Cache (optional, can be large)
+# Model Cache (can be large)
 .cache/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
+# Corpus (uploaded PDFs - user data, not code)
+# corpus/
+
+# Docker volumes (local)
+mongo_data/
+qdrant_data/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Antigravity/Gemini
+.gemini/
