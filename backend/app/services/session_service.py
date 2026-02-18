@@ -17,8 +17,8 @@ settings = get_settings()
 class SessionService:
     def __init__(self):
         # LlamaIndex MongoChatStore for chat history
-        self.chat_store = MongoChatStore.from_uri(
-            uri=settings.mongodb_uri,
+        self.chat_store = MongoChatStore(
+            mongo_uri=settings.mongodb_uri,
             db_name=settings.mongodb_db_name
         )
         # Direct pymongo for session metadata
@@ -54,8 +54,11 @@ class SessionService:
         )
         # Add message count
         for s in sessions:
-            messages = self.chat_store.get_messages(s["session_id"])
-            s["message_count"] = len(messages)
+            try:
+                messages = self.chat_store.get_messages(s["session_id"])
+                s["message_count"] = len(messages)
+            except (KeyError, Exception):
+                s["message_count"] = 0
         return sessions
 
     def get_session(self, session_id: str) -> Optional[dict]:
@@ -67,18 +70,22 @@ class SessionService:
             return None
         
         # Get chat messages from LlamaIndex store
-        messages = self.chat_store.get_messages(session_id)
-        session["messages"] = [
-            {
-                "role": str(msg.role.value) if hasattr(msg.role, 'value') else str(msg.role),
-                "content": msg.content,
-                "sources": msg.additional_kwargs.get("sources"),
-                "images": msg.additional_kwargs.get("images"),
-                "search_mode": msg.additional_kwargs.get("search_mode"),
-                "timestamp": msg.additional_kwargs.get("timestamp", session["created_at"].isoformat())
-            }
-            for msg in messages
-        ]
+        try:
+            messages = self.chat_store.get_messages(session_id)
+            session["messages"] = [
+                {
+                    "role": str(msg.role.value) if hasattr(msg.role, 'value') else str(msg.role),
+                    "content": msg.content,
+                    "sources": msg.additional_kwargs.get("sources"),
+                    "images": msg.additional_kwargs.get("images"),
+                    "search_mode": msg.additional_kwargs.get("search_mode"),
+                    "timestamp": msg.additional_kwargs.get("timestamp", session["created_at"].isoformat())
+                }
+                for msg in messages
+            ]
+        except (KeyError, Exception) as e:
+            print(f"⚠️ Could not load messages for {session_id}: {e}")
+            session["messages"] = []
         return session
 
     def delete_session(self, session_id: str) -> bool:

@@ -149,6 +149,194 @@ flowchart TB
 
 ---
 
+## 🤖 Agentic Workflow Architecture
+
+### Multi-Agent System Overview
+
+The system implements a **3-agent collaborative workflow** using LlamaIndex's native Workflow framework with `@step` decorators. Each agent has specialized responsibilities and communicates through typed events.
+
+```mermaid
+flowchart TB
+    subgraph Workflow["Research Workflow Orchestrator"]
+        direction TB
+        
+        subgraph Agent1["Agent 1: Query Orchestrator 🎯"]
+            A1_START([StartEvent])
+            A1_INTENT["Intent Classification<br/>- SUMMARY<br/>- COMPARISON<br/>- RESEARCH_GAPS"]
+            A1_SECTION["Section Mapping<br/>- Methods, Results<br/>- Discussion, Limitations<br/>- Abstract, Introduction"]
+            A1_CONF["Confidence Prediction<br/>- Threshold Check"]
+            A1_END([RetrievalEvent])
+            
+            A1_START --> A1_INTENT
+            A1_INTENT --> A1_SECTION
+            A1_SECTION --> A1_CONF
+            A1_CONF --> A1_END
+        end
+        
+        subgraph Agent2["Agent 2: Evidence Retrieval 🔍"]
+            A2_START([RetrievalEvent])
+            A2_DENSE["Dense Search<br/>BGE-768 Embedding"]
+            A2_SPARSE["Sparse Search<br/>BM42 Keyword"]
+            A2_CLIP["CLIP Search<br/>Image Retrieval"]
+            A2_FUSION["RRF Fusion<br/>k=60"]
+            A2_COVERAGE["Coverage Analysis<br/>- Paper Coverage<br/>- Section Coverage"]
+            A2_HITL{"HITL Gate"}
+            A2_END([AnalysisEvent])
+            
+            A2_START --> A2_DENSE
+            A2_START --> A2_SPARSE
+            A2_START --> A2_CLIP
+            A2_DENSE --> A2_FUSION
+            A2_SPARSE --> A2_FUSION
+            A2_CLIP --> A2_COVERAGE
+            A2_FUSION --> A2_COVERAGE
+            A2_COVERAGE --> A2_HITL
+            A2_HITL -->|Sufficient| A2_END
+            A2_HITL -->|Insufficient| A2_ESCALATE([HumanReviewEvent])
+        end
+        
+        subgraph Agent3["Agent 3: Analysis & Synthesis 🧠"]
+            A3_START([AnalysisEvent])
+            A3_ROUTE["Intent Router"]
+            A3_SUM["Summary Synthesis"]
+            A3_COMP["Paper Comparison"]
+            A3_GAPS["Gap Analysis"]
+            A3_SYNTH["LLM Synthesis<br/>Groq/GPT-4"]
+            A3_CONF["Confidence Estimation"]
+            A3_END([StopEvent])
+            
+            A3_START --> A3_ROUTE
+            A3_ROUTE -->|SUMMARY| A3_SUM
+            A3_ROUTE -->|COMPARISON| A3_COMP
+            A3_ROUTE -->|GAPS| A3_GAPS
+            A3_SUM --> A3_SYNTH
+            A3_COMP --> A3_SYNTH
+            A3_GAPS --> A3_SYNTH
+            A3_SYNTH --> A3_CONF
+            A3_CONF --> A3_END
+        end
+        
+        subgraph Validation["Validation Layer 🛡️"]
+            VAL1["Schema Validation<br/>Pydantic Models"]
+            VAL2["Citation Grounding<br/>Source Verification"]
+            VAL3["Hallucination Detection<br/>Heuristic Checks"]
+            VAL4["Final Confidence Check"]
+            
+            VAL1 --> VAL2
+            VAL2 --> VAL3
+            VAL3 --> VAL4
+        end
+        
+        Agent1 --> Agent2
+        Agent2 --> Agent3
+        Agent3 --> Validation
+        Validation --> RESPONSE([Validated Response])
+    end
+    
+    subgraph Observability["Langfuse Observability 📊"]
+        TRACE1["Workflow Traces"]
+        TRACE2["Agent Spans"]
+        TRACE3["Service Metrics"]
+        
+        Agent1 -.-> TRACE1
+        Agent2 -.-> TRACE2
+        Agent3 -.-> TRACE2
+        Validation -.-> TRACE3
+    end
+    
+    style Agent1 fill:#e3f2fd
+    style Agent2 fill:#f3e5f5
+    style Agent3 fill:#e8f5e9
+    style Validation fill:#fff3e0
+    style Workflow fill:#fafafa
+```
+
+### Agent Communication Protocol
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Wf as Workflow Orchestrator
+    participant A1 as QueryOrchestrator
+    participant A2 as EvidenceRetrieval
+    participant A3 as AnalysisSynthesis
+    participant Hitl as HITL Gate
+    participant Guard as Guardrails AI
+    participant Qdrant as Qdrant DB
+    participant LLM as Groq LLM
+
+    User->>Wf: Submit Question
+    
+    rect rgb(227, 242, 253)
+        Note over Wf,A1: Agent 1: Orchestration
+        Wf->>A1: StartEvent(question)
+        A1->>LLM: classify_intent()
+        LLM-->>A1: IntentType + Sections
+        A1-->>Wf: RetrievalEvent(intent, sections)
+    end
+    
+    rect rgb(243, 229, 245)
+        Note over Wf,A2: Agent 2: Retrieval
+        Wf->>A2: RetrievalEvent
+        par Parallel Search
+            A2->>Qdrant: Hybrid Search (Dense + Sparse)
+            Qdrant-->>A2: Text Chunks
+        and
+            A2->>Qdrant: CLIP Image Search
+            Qdrant-->>A2: Images
+        end
+        A2->>A2: Calculate Coverage
+        A2->>Hitl: Check Thresholds
+        Hitl-->>A2: Proceed/Block Decision
+        A2-->>Wf: AnalysisEvent(chunks, images)
+    end
+    
+    rect rgb(232, 245, 233)
+        Note over Wf,A3: Agent 3: Synthesis
+        Wf->>A3: AnalysisEvent
+        A3->>A3: Route by Intent
+        A3->>LLM: synthesize_answer()
+        LLM-->>A3: Generated Response
+        A3->>A3: Estimate Confidence
+        A3-->>Wf: StopEvent(answer)
+    end
+    
+    rect rgb(255, 243, 224)
+        Note over Wf,Guard: Validation
+        Wf->>Guard: validate_and_enforce()
+        Guard->>Guard: Schema Validation
+        Guard->>Guard: Citation Grounding
+        Guard->>Guard: Hallucination Check
+        Guard-->>Wf: ValidatedAnswer
+    end
+    
+    Wf-->>User: Final Response + Citations
+```
+
+### Agent Responsibilities
+
+| Agent | Role | Input | Output | Key Capabilities |
+|-------|------|-------|--------|------------------|
+| **Query Orchestrator** | Strategic Planner | User Question | Retrieval Plan | Intent Classification, Section Mapping, Confidence Prediction |
+| **Evidence Retrieval** | Evidence Gatherer | Retrieval Plan | Evidence Bundle | Hybrid Search, CLIP Retrieval, Coverage Analysis, HITL Gate |
+| **Analysis Synthesis** | Reasoning Engine | Evidence Bundle | Synthesized Answer | Intent-Aware Routing, LLM Synthesis, Confidence Scoring |
+
+### Event Flow Architecture
+
+```
+StartEvent (User Question)
+    ↓
+@step orchestrate_query() → RetrievalEvent (Plan)
+    ↓
+@step retrieve_evidence() → AnalysisEvent (Evidence) | HumanReviewEvent
+    ↓
+@step analyze_and_synthesize() → StopEvent (Answer) | HumanReviewEvent
+    ↓
+@step handle_human_review() → StopEvent (Final)
+```
+
+---
+
 ## 📊 Langfuse Observability Architecture
 
 ### Comprehensive Tracing Strategy
@@ -1337,6 +1525,239 @@ streamlit run frontend/app.py --server.port 8501
 **Option C: Interactive CLI**
 ```bash
 python interactive_query.py
+```
+
+---
+
+## 🐳 Docker Deployment (One-Command Setup)
+
+The entire system can be containerized and run with Docker. This is the easiest way to deploy and test the application anywhere!
+
+### Prerequisites
+- Docker & Docker Compose installed
+- Groq API key (free at https://console.groq.com)
+
+### Quick Start with Docker
+
+#### 1. Clone and Configure
+
+```bash
+git clone <repository-url>
+cd research-paper-intelligence-system
+
+# Create .env file
+cat > .env << EOF
+GROQ_API_KEY=your_groq_api_key_here
+EOF
+```
+
+#### 2. Start All Services
+
+```bash
+# Build and start everything (Qdrant, MongoDB, Backend, Frontend)
+docker-compose up --build -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f backend
+docker-compose logs -f frontend
+```
+
+#### 3. Access the Application
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Frontend (Streamlit)** | http://localhost:8501 | ChatGPT-style web interface |
+| **Backend API (FastAPI)** | http://localhost:8000 | REST API with auto-docs |
+| **API Documentation** | http://localhost:8000/docs | Swagger/OpenAPI UI |
+| **Qdrant Dashboard** | http://localhost:6333/dashboard | Vector DB management |
+
+#### 4. Build Corpus (One-time setup)
+
+Place your PDF files in the `corpus/` folder, then:
+
+```bash
+# Build corpus using Docker
+docker-compose --profile corpus run --rm corpus
+
+# Or use the CLI tool directly
+docker-compose exec backend python build_corpus.py
+```
+
+### Docker Services Overview
+
+```mermaid
+flowchart TB
+    subgraph DockerCompose["Docker Compose Stack"]
+        direction TB
+        
+        subgraph DataLayer["Data Layer"]
+            QD[(Qdrant<br/>Port 6333)]
+            MG[(MongoDB<br/>Port 27017)]
+        end
+        
+        subgraph AppLayer["Application Layer"]
+            BE[Backend<br/>FastAPI<br/>Port 8000]
+            FE[Frontend<br/>Streamlit<br/>Port 8501]
+        end
+        
+        subgraph Storage["Persistent Storage"]
+            VOL1[qdrant_data]
+            VOL2[mongo_data]
+            CORPUS[corpus/]
+        end
+        
+        FE -->|HTTP API| BE
+        BE -->|Vector Ops| QD
+        BE -->|Sessions| MG
+        VOL1 --> QD
+        VOL2 --> MG
+        CORPUS -.->|PDFs| BE
+    end
+    
+    User[User Browser] -->|http://localhost:8501| FE
+    User -->|http://localhost:8000/docs| BE
+    
+    style DockerCompose fill:#f5f5f5
+    style DataLayer fill:#e3f2fd
+    style AppLayer fill:#e8f5e9
+    style Storage fill:#fff3e0
+```
+
+### Service Modes
+
+The Docker image supports multiple service modes via the `SERVICE` environment variable:
+
+| Mode | Command | Purpose |
+|------|---------|---------|
+| `backend` | `docker run -e SERVICE=backend ...` | FastAPI REST API |
+| `frontend` | `docker run -e SERVICE=frontend ...` | Streamlit web UI |
+| `corpus` | `docker run -e SERVICE=corpus ...` | Build corpus from PDFs |
+| `interactive` | `docker run -e SERVICE=interactive ...` | Interactive CLI |
+| `test` | `docker run -e SERVICE=test ...` | Run test suite |
+
+### Advanced Docker Usage
+
+#### Run Backend Only
+
+```bash
+docker-compose up -d qdrant mongodb backend
+```
+
+#### Run Frontend Only
+
+```bash
+# Requires backend to be running
+docker-compose up -d frontend
+```
+
+#### Build Corpus (with PDFs)
+
+```bash
+# Place PDFs in corpus/ folder first
+mkdir -p corpus
+cp /path/to/your/papers/*.pdf corpus/
+
+# Build the corpus
+docker-compose --profile corpus run --rm corpus
+```
+
+#### Interactive Query Mode
+
+```bash
+docker-compose run --rm backend docker-startup.sh interactive
+```
+
+#### Run Tests
+
+```bash
+docker-compose run --rm backend docker-startup.sh test
+```
+
+#### Rebuild After Code Changes
+
+```bash
+# Rebuild specific service
+docker-compose up -d --build backend
+
+# Or rebuild everything
+docker-compose up -d --build
+```
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `GROQ_API_KEY` | ✅ | - | Your Groq API key |
+| `QDRANT_HOST` | ❌ | `qdrant` | Qdrant hostname |
+| `QDRANT_PORT` | ❌ | `6333` | Qdrant port |
+| `MONGODB_URI` | ❌ | `mongodb://mongodb:27017` | MongoDB connection string |
+| `LANGFUSE_PUBLIC_KEY` | ❌ | - | Langfuse public key |
+| `LANGFUSE_SECRET_KEY` | ❌ | - | Langfuse secret key |
+| `ENABLE_LANGFUSE` | ❌ | `false` | Enable Langfuse tracing |
+
+### Production Deployment
+
+For production deployment:
+
+```bash
+# Use production compose file
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Or with explicit environment
+docker-compose up -d \
+  -e GROQ_API_KEY=your_key \
+  -e ENABLE_LANGFUSE=true
+```
+
+### Troubleshooting
+
+#### Check Logs
+
+```bash
+# All services
+docker-compose logs
+
+# Specific service
+docker-compose logs backend
+
+# Follow logs
+docker-compose logs -f
+```
+
+#### Restart Services
+
+```bash
+# Restart everything
+docker-compose restart
+
+# Restart specific service
+docker-compose restart backend
+```
+
+#### Reset Data
+
+```bash
+# ⚠️ WARNING: This will delete all data!
+docker-compose down -v
+docker-compose up -d
+```
+
+#### Health Checks
+
+All services include health checks:
+
+```bash
+# Check health
+docker-compose ps
+
+# Check backend health
+curl http://localhost:8000/health
+
+# Check Qdrant
+curl http://localhost:6333/collections
 ```
 
 ---

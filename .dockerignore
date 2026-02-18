@@ -1,0 +1,74 @@
+# ═══════════════════════════════════════════════════════════════
+# Research Paper Intelligence System — Docker Ignore
+# ═══════════════════════════════════════════════════════════════
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+venv_clean/
+env/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Environment files (except template)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation (keep README)
+*.md
+!README.md
+
+# Data and cache
+*.log
+*.sqlite
+*.db
+cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Large model files (will be downloaded on demand)
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+models/
+checkpoints/
+
+# Qdrant and MongoDB data (if mounted locally)
+qdrant_data/
+mongo_data/
+data/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

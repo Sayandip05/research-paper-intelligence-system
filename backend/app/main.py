@@ -39,6 +39,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CORS middleware — allows frontend (Streamlit) to call the API
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(search.router, prefix="/api", tags=["search"])
 app.include_router(query.router, prefix="/api", tags=["query"])
 app.include_router(upload.router, prefix="/api", tags=["upload"])

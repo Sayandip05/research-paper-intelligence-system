@@ -1,4 +1,4 @@
-version: '3.8'
+# Docker Compose — Research Paper Intelligence System
 
 services:
   # Qdrant Vector Database
@@ -12,6 +12,11 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - paper_network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:6333/collections" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # MongoDB (Session Memory)
   mongodb:
@@ -23,6 +28,98 @@ services:
       - mongo_data:/data/db
     networks:
       - paper_network
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paper_analyzer_backend
+    environment:
+      - SERVICE=backend
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - MONGODB_URI=mongodb://mongodb:27017
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-http://localhost:3000}
+      - ENABLE_LANGFUSE=${ENABLE_LANGFUSE:-false}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./corpus:/app/corpus
+      - ./data:/app/data
+    networks:
+      - paper_network
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+    command: [ "docker-startup.sh" ]
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend UI (Streamlit)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paper_analyzer_frontend
+    environment:
+      - SERVICE=frontend
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - MONGODB_URI=mongodb://mongodb:27017
+      - BACKEND_URL=http://backend:8000
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./corpus:/app/corpus
+    networks:
+      - paper_network
+    depends_on:
+      - backend
+    restart: unless-stopped
+    command: [ "docker-startup.sh" ]
+
+  # Corpus Builder (One-time service)
+  corpus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paper_analyzer_corpus
+    environment:
+      - SERVICE=corpus
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - MONGODB_URI=mongodb://mongodb:27017
+    volumes:
+      - ./corpus:/app/corpus
+      - ./data:/app/data
+    networks:
+      - paper_network
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    profiles:
+      - corpus
+    command: [ "docker-startup.sh" ]
 
 volumes:
   qdrant_data:
