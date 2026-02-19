@@ -264,6 +264,76 @@ with st.sidebar:
             st.error("● Backend Error")
     except:
         st.error("● Backend Offline")
+    
+    st.divider()
+    
+    # ========== VOICE QUERY ==========
+    st.subheader("🎤 Voice Query")
+    st.caption("Record audio to ask a question")
+    audio_data = st.audio_input("Record your question", key="voice_recorder")
+    
+    if audio_data is not None:
+        if st.button("🚀 Send Voice Query", type="primary", use_container_width=True, key="send_voice"):
+            # Auto-create session if none
+            if not st.session_state.active_session_id:
+                create_new_session()
+            
+            with st.spinner("🎤 Transcribing & Querying..."):
+                try:
+                    files = {"audio": ("recording.wav", audio_data, "audio/wav")}
+                    form_data = {
+                        "search_mode": st.session_state.get("last_mode", "hybrid"),
+                        "similarity_top_k": str(st.session_state.get("last_k", 5)),
+                    }
+                    resp = requests.post(
+                        f"{API_BASE_URL}/api/query/voice",
+                        files=files,
+                        data=form_data,
+                        timeout=60
+                    )
+                    
+                    if resp.status_code == 200:
+                        result = resp.json()
+                        transcribed = result.get("transcribed_text", "")
+                        answer = result.get("answer", "No answer.")
+                        sources = result.get("sources", [])
+                        images = result.get("images", [])
+                        
+                        # Save to session messages
+                        st.session_state.messages.append({
+                            "role": "user",
+                            "content": f"🎤 {transcribed}"
+                        })
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": answer,
+                            "sources": sources,
+                            "images": images
+                        })
+                        
+                        # Also save to backend session
+                        session_id = st.session_state.active_session_id
+                        if session_id:
+                            try:
+                                requests.post(
+                                    f"{API_BASE_URL}/api/sessions/{session_id}/query",
+                                    json={
+                                        "question": transcribed,
+                                        "similarity_top_k": st.session_state.get("last_k", 5),
+                                        "search_mode": st.session_state.get("last_mode", "hybrid")
+                                    },
+                                    timeout=60
+                                )
+                            except:
+                                pass
+                        
+                        st.success(f"✅ Transcribed: {transcribed}")
+                        st.rerun()
+                    else:
+                        detail = resp.json().get("detail", resp.text)
+                        st.error(f"❌ {detail}")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
 
 # ============== MAIN CONTENT ==============
 

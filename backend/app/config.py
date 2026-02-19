@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "research_paper_intel"
     
+    # Sarvam AI (Speech-to-Text)
+    sarvam_api_key: str = ""
+    
     corpus_dir: str = "../corpus"
     
     class Config:

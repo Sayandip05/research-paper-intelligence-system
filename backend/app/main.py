@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api.routes import search, query, upload, image_search, images, sessions
+from app.api.routes import search, query, upload, image_search, images, sessions, voice
 from app.config import get_settings
 
 settings = get_settings()
@@ -55,6 +55,7 @@ app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(image_search.router, prefix="/api", tags=["Image Search"])
 app.include_router(images.router, prefix="/api", tags=["Images"])
 app.include_router(sessions.router, prefix="/api", tags=["Sessions"])
+app.include_router(voice.router, prefix="/api", tags=["Voice"])
 
 @app.get("/")
 def root():
