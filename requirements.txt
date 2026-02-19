@@ -57,3 +57,6 @@ llama-index-storage-chat-store-mongo
 
 # ── Testing ──────────────────────────────────────────────────
 pytest
+
+# ── Sarvam AI (Speech-to-Text) ───────────────────────────────
+sarvamai
